@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -282,7 +282,7 @@ const lanes = [
     canvas.width * 0.5 - 20,
     canvas.width * 0.75 - 20
 ];
-const ship = { width:40, height:60, x:lanes[1], targetX:lanes[1], y:canvas.height-100, lane:1, moveSpeed:0.11, tilt:0 };
+const ship = { width:40, height:60, x:lanes[1], targetX:lanes[1], y:canvas.height-120, lane:1, moveSpeed:0.11, tilt:0 };
 let animationFrameId = null;
 
 // ----------- RANK & XP -------------
