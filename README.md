@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -72,20 +72,7 @@ canvas { display:block; margin:auto; background:radial-gradient(circle at center
 #dailyProgressFill { height:100%; background:#00ff88; width:0%; transition:width .3s; }
 #dailyProgressText { font-size:11px; color:#aaa; margin-top:2px; }
 
-/* ── LEADERBOARD ── */
-#lbPanel { max-width:380px; margin:0 auto; }
-#lbTable { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
-#lbTable th { color:#00ffcc; border-bottom:1px solid #333; padding:3px 7px; text-align:left; }
-#lbTable td { padding:3px 7px; border-bottom:1px solid #1a1a1a; }
-#lbTable tr.my-score td { color:#ffd700; font-weight:bold; }
-#lbTable tr:nth-child(2) td:first-child { color:#ffd700; }
-#lbTable tr:nth-child(3) td:first-child { color:#c0c0c0; }
-#lbTable tr:nth-child(4) td:first-child { color:#cd7f32; }
-#lbEmpty { color:#666; font-size:13px; margin-top:16px; }
-#lbRefreshBtn {
-    padding:4px 12px; background:#111; color:#00ffcc; border:1px solid #00ffcc;
-    border-radius:6px; cursor:pointer; font-size:12px; margin-top:6px;
-}
+
 
 /* ── NAME / MISC ── */
 #nameRow { display:flex; align-items:center; gap:6px; justify-content:center; margin:5px 0; }
@@ -129,23 +116,7 @@ canvas { display:block; margin:auto; background:radial-gradient(circle at center
     color:#ff6644; text-shadow:0 0 8px #ff4400; display:none;
 }
 
-/* ── SCORE SUBMIT ── */
-#scoreSubmit {
-    display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    background:rgba(0,0,0,.93); border:2px solid #00ffcc; border-radius:12px;
-    padding:18px 24px; text-align:center; z-index:500; min-width:230px;
-}
-#scoreSubmit h3 { margin:0 0 8px; color:#ffd700; font-size:18px; }
-#scoreSubmit .sv { font-size:22px; font-weight:bold; color:#ffd700; margin:4px 0; }
-#scoreSubmit .sn { font-size:12px; color:#aaa; margin-bottom:8px; }
-#submitBtn {
-    padding:7px 20px; background:#00ffcc; color:#000; border:none;
-    border-radius:7px; font-size:14px; font-weight:bold; cursor:pointer; display:block; margin:8px auto 4px;
-}
-#skipBtn {
-    padding:4px 14px; background:transparent; color:#666; border:1px solid #444;
-    border-radius:6px; font-size:12px; cursor:pointer; display:block; margin:0 auto;
-}
+
 
 /* ── NOTIFICATION TOAST ── */
 #toast {
@@ -226,15 +197,6 @@ canvas { display:block; margin:auto; background:radial-gradient(circle at center
     <div style="font-size:14px">Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="highScore">0</span></div>
     <div id="rankUpAnimation">⭐ RANK UP ⭐</div>
     <div id="gameOver">💥 GAME OVER — Press R to Restart</div>
-</div>
-
-<!-- SCORE SUBMIT -->
-<div id="scoreSubmit">
-    <h3>🏆 Submit Score</h3>
-    <div class="sv" id="submitVal"></div>
-    <div class="sn">Pilot: <strong id="submitName"></strong></div>
-    <button id="submitBtn">Post to Leaderboard</button>
-    <button id="skipBtn">Skip</button>
 </div>
 
 <canvas id="gameCanvas" width="480" height="720"></canvas>
@@ -528,50 +490,6 @@ function renderDailyTab(){
 }
 
 // ══════════════════════════════════════════════════════════
-//  LEADERBOARD
-// ══════════════════════════════════════════════════════════
-function getLeaderboard(){
-    try{ return JSON.parse(localStorage.getItem("sd2_lb")||"[]"); } catch(e){ return []; }
-}
-function submitScore(name,scoreVal){
-    const lb=getLeaderboard();
-    lb.push({ name:(name||"Anonymous").trim().substring(0,16), score:scoreVal, date:new Date().toLocaleDateString() });
-    lb.sort((a,b)=>b.score-a.score); lb.splice(20);
-    localStorage.setItem("sd2_lb",JSON.stringify(lb));
-    renderLeaderboard();
-}
-function renderLeaderboard(){
-    const lb=getLeaderboard(), content=document.getElementById("lbContent");
-    if(!lb.length){ content.innerHTML=`<div id="lbEmpty">No scores yet — play a game!</div>`; return; }
-    const myName=(playerName||"").trim();
-    content.innerHTML=`<table id="lbTable">
-        <tr><th>#</th><th>Pilot</th><th>Score</th><th>Date</th></tr>
-        ${lb.map((e,i)=>`<tr class="${e.name===myName?"my-score":""}">
-            <td>${i+1}</td><td>${e.name}</td><td>${e.score}</td>
-            <td style="color:#555;font-size:11px">${e.date}</td></tr>`).join("")}
-    </table>`;
-}
-
-// ══════════════════════════════════════════════════════════
-//  SCORE SUBMIT OVERLAY
-// ══════════════════════════════════════════════════════════
-function showScoreSubmit(){
-    if(score<=0){ showHomescreen(); return; }
-    document.getElementById("submitVal").innerText="Score: "+score;
-    document.getElementById("submitName").innerText=playerName||"Anonymous";
-    document.getElementById("scoreSubmit").style.display="block";
-}
-document.getElementById("submitBtn").onclick=function(){
-    submitScore(playerName,score);
-    document.getElementById("scoreSubmit").style.display="none";
-    showHomescreen();
-};
-document.getElementById("skipBtn").onclick=function(){
-    document.getElementById("scoreSubmit").style.display="none";
-    showHomescreen();
-};
-
-// ══════════════════════════════════════════════════════════
 //  TABS
 // ══════════════════════════════════════════════════════════
 document.querySelectorAll(".tabBtn").forEach(btn=>{
@@ -580,9 +498,8 @@ document.querySelectorAll(".tabBtn").forEach(btn=>{
         document.querySelectorAll(".tabPanel").forEach(p=>p.classList.remove("active"));
         btn.classList.add("active");
         document.getElementById(btn.dataset.tab).classList.add("active");
-        if(btn.dataset.tab==="lbTab")    renderLeaderboard();
         if(btn.dataset.tab==="dailyTab") renderDailyTab();
-        if(btn.dataset.tab==="boostsTab"){ renderBoostsTab(); }
+        if(btn.dataset.tab==="boostsTab") renderBoostsTab();
     });
 });
 document.getElementById("playerNameInput").addEventListener("input",function(){
@@ -596,7 +513,6 @@ function showHomescreen(){
     if(animationFrameId!==null){ cancelAnimationFrame(animationFrameId); animationFrameId=null; }
     document.getElementById("homescreen").style.display="block";
     document.getElementById("ui").style.display="none";
-    document.getElementById("scoreSubmit").style.display="none";
     document.getElementById("laserDisplay").style.display="none";
     document.getElementById("godlyCooldown").style.display="none";
     updateAllRankUi(); drawHomeCosmetics(); drawPowerDesc(); renderDailyTab();
@@ -658,7 +574,6 @@ function resetGame(){
     document.getElementById("score").innerText=0;
     document.getElementById("highScore").innerText=highScore;
     document.getElementById("gameOver").style.display="none";
-    document.getElementById("scoreSubmit").style.display="none";
     document.getElementById("reviveFlash").style.display="none";
     document.getElementById("godlyCooldown").style.display="none";
 
@@ -725,7 +640,7 @@ function updateAsteroids(speed){
             // Check daily
             const ch=getDailyChallenge();
             if(chosenCosmetic===ch.shipId&&score>=ch.targetScore) completeDailyChallenge();
-            setTimeout(showScoreSubmit,950);
+            setTimeout(showHomescreen,1100);
         }
         if(a.y>canvas.height){
             asteroids.splice(index,1);
@@ -875,7 +790,7 @@ document.addEventListener("keydown",e=>{
     if(e.key==="ArrowLeft"||e.key==="a"){ if(ship.lane>0){ship.lane--;ship.targetX=lanes[ship.lane];} }
     if(e.key==="ArrowRight"||e.key==="d"){ if(ship.lane<2){ship.lane++;ship.targetX=lanes[ship.lane];} }
     if(e.key===" ") boostKey=true;
-    if(e.key==="r"&&gameOver){ document.getElementById("scoreSubmit").style.display="none"; resetGame(); animationFrameId=requestAnimationFrame(update); }
+    if(e.key==="r"&&gameOver){ resetGame(); animationFrameId=requestAnimationFrame(update); }
     if(e.key.toLowerCase()==="l"&&laserShots>0&&!gameOver) fireLaser();
     if(getPowerActive("Time Annihilate")&&e.key.toLowerCase()==="f"&&godlyCooldown===0&&!gameOver){
         asteroids=[]; godlyCooldown=getGodlyCooldownFrames(); frozenFrames=180;
