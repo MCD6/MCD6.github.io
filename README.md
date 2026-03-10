@@ -59,18 +59,27 @@ canvas { display:block; margin:auto; background:radial-gradient(circle at center
 .boostCard button.unequip { border-color:#ff6666; color:#ff6666; }
 #activeBoostsList { font-size:12px; color:#0ff; margin:4px 0 2px; min-height:16px; }
 
-/* ── DAILY ── */
-#dailyCard {
-    background:#0a1a0a; border:2px solid #00ff88; border-radius:12px;
-    padding:14px 18px; max-width:320px; margin:10px auto; text-align:center;
+/* ── QUESTS ── */
+#questsPanel { max-width:420px; margin:0 auto; }
+#questsHeader { font-size:12px; color:#888; margin:4px 0 6px; }
+.questCard {
+    background:#0d1520; border:1px solid #223; border-radius:10px;
+    padding:9px 12px; margin:6px 0; text-align:left; position:relative;
 }
-#dailyCard .dt { font-size:18px; font-weight:bold; color:#00ff88; margin-bottom:6px; }
-#dailyCard .dd { font-size:14px; color:#ccc; margin-bottom:6px; }
-#dailyCard .dr { font-size:13px; color:#ffd700; }
-#dailyCard .ddone { font-size:15px; color:#00ff88; font-weight:bold; margin-top:5px; }
-#dailyProgressBar { width:250px; height:12px; background:#1a2a1a; border:1px solid #00ff88; margin:8px auto; border-radius:3px; overflow:hidden; }
-#dailyProgressFill { height:100%; background:#00ff88; width:0%; transition:width .3s; }
-#dailyProgressText { font-size:11px; color:#aaa; margin-top:2px; }
+.questCard.done { border-color:#00ff88; background:#091409; }
+.questCard .qt { font-size:13px; font-weight:bold; color:#fff; margin-bottom:3px; }
+.questCard .qd { font-size:11px; color:#aaa; margin-bottom:5px; }
+.questCard .qr { font-size:11px; color:#ffd700; position:absolute; top:9px; right:10px; }
+.questCard .qbar { height:8px; background:#1a1a2a; border-radius:4px; overflow:hidden; margin-bottom:3px; }
+.questCard .qfill { height:100%; border-radius:4px; transition:width .3s; }
+.questCard .qprog { font-size:10px; color:#888; }
+.questCard .qdone { font-size:12px; color:#00ff88; font-weight:bold; }
+.questRarity-common .qfill { background:#00cc88; }
+.questRarity-rare   .qfill { background:#4488ff; }
+.questRarity-epic   .qfill { background:#cc44ff; }
+.questRarity-common { border-left:3px solid #00cc88; }
+.questRarity-rare   { border-left:3px solid #4488ff; }
+.questRarity-epic   { border-left:3px solid #cc44ff; }
 
 
 
@@ -144,7 +153,7 @@ canvas { display:block; margin:auto; background:radial-gradient(circle at center
     <div id="homeTabs">
         <button class="tabBtn active" data-tab="shipTab">🚀 Ship</button>
         <button class="tabBtn" data-tab="boostsTab">⚡ Run Boosts</button>
-        <button class="tabBtn" data-tab="dailyTab">📅 Daily</button>
+        <button class="tabBtn" data-tab="questsTab">📜 Quests</button>
 
     </div>
 
@@ -165,15 +174,11 @@ canvas { display:block; margin:auto; background:radial-gradient(circle at center
         <div id="boostsGrid"></div>
     </div>
 
-    <!-- DAILY TAB -->
-    <div id="dailyTab" class="tabPanel">
-        <div id="dailyCard">
-            <div class="dt">📅 Daily Challenge</div>
-            <div class="dd" id="dailyDesc">Loading…</div>
-            <div id="dailyProgressBar"><div id="dailyProgressFill"></div></div>
-            <div id="dailyProgressText"></div>
-            <div class="dr">Reward: 🪙 3 Gems</div>
-            <div class="ddone" id="dailyDone" style="display:none">✅ Completed today!</div>
+    <!-- QUESTS TAB -->
+    <div id="questsTab" class="tabPanel">
+        <div id="questsPanel">
+            <div id="questsHeader">Complete quests to earn 💎 Gems. New quests unlock as you finish them!</div>
+            <div id="questsList"></div>
         </div>
     </div>
 
@@ -269,7 +274,7 @@ let startShieldActive=false, startShieldFrames=0;
 let activeRunBoosts=[];
 let laserShots=0, laserFrames=0, laserLane=0;
 let playerName="Pilot";
-let dailySessionScore=0;
+let questRunScore=0;
 
 const lanes = [canvas.width*.25-20, canvas.width*.5-20, canvas.width*.75-20];
 const ship = { width:40, height:60, x:lanes[1], targetX:lanes[1], y:canvas.height-120, lane:1, moveSpeed:.11, tilt:0 };
@@ -454,39 +459,123 @@ function renderBoostsTab(){
 }
 
 // ══════════════════════════════════════════════════════════
-//  DAILY CHALLENGE
+//  INFINITE QUESTS  (score X with ship Y — 3 at a time)
 // ══════════════════════════════════════════════════════════
-function getDailyChallenge(){
-    const now=new Date();
-    const seed=now.getFullYear()*10000+(now.getMonth()+1)*100+now.getDate();
-    const targets=[150,200,250,300,400];
-    return {
-        shipId: seed%COSMETICS.length,
-        shipName: COSMETICS[seed%COSMETICS.length].name,
-        targetScore: targets[seed%targets.length],
-        seed,
-        dateStr: now.toDateString()
-    };
+
+// Tiers escalate every batch: targets get harder, gem reward goes up
+const QUEST_TIERS = [
+    { targets:[100,150,200],   gems:1 },
+    { targets:[200,250,300],   gems:1 },
+    { targets:[300,400,500],   gems:2 },
+    { targets:[500,600,750],   gems:2 },
+    { targets:[750,900,1100],  gems:3 },
+    { targets:[1000,1250,1500],gems:3 },
+    { targets:[1500,1750,2000],gems:4 },
+    { targets:[2000,2500,3000],gems:4 },
+    { targets:[3000,4000,5000],gems:5 },
+];
+
+// Per-run tracking (declared at top of script)
+
+function loadQuestState(){
+    try{ return JSON.parse(localStorage.getItem("sd2_qstate")||"null"); } catch(e){ return null; }
 }
-function isDailyDone(){ return localStorage.getItem("sd2_daily_"+getDailyChallenge().seed)==="done"; }
-function completeDailyChallenge(){
-    if(isDailyDone()) return;
-    const ch=getDailyChallenge();
-    localStorage.setItem("sd2_daily_"+ch.seed,"done");
-    gems+=3; saveProgress(); updateAllRankUi();
-    renderDailyTab();
-    showToast("🎉 Daily Challenge Complete! +3 💎",3000);
+function saveQuestState(s){ localStorage.setItem("sd2_qstate",JSON.stringify(s)); }
+
+function seededRng(seed){
+    // Simple deterministic shuffle from a seed
+    let s=seed;
+    return ()=>{ s=(s*9301+49297)%233280; return s/233280; };
 }
 
-function renderDailyTab(){
-    const ch=getDailyChallenge(), done=isDailyDone();
-    document.getElementById("dailyDesc").innerText=
-        `Score ${ch.targetScore}+ points using the ${ch.shipName}`;
-    document.getElementById("dailyDone").style.display=done?"block":"none";
-    const pct=done?100:Math.min(100,dailySessionScore/ch.targetScore*100);
-    document.getElementById("dailyProgressFill").style.width=pct+"%";
-    document.getElementById("dailyProgressText").innerText=
-        done?"":`Progress this run: ${Math.min(dailySessionScore,ch.targetScore)} / ${ch.targetScore}`;
+function generateBatch(batchIndex){
+    const tier=QUEST_TIERS[Math.min(batchIndex, QUEST_TIERS.length-1)];
+    const rng=seededRng(batchIndex*997+42);
+    // Pick 3 distinct ships (prefer unlocked ones, fallback to all)
+    const unlocked=COSMETICS.filter(c=>xp>=c.unlockXp);
+    const pool=(unlocked.length>=3?unlocked:COSMETICS).map(c=>c.id);
+    // shuffle pool
+    const shuffled=[...pool].sort(()=>rng()-.5);
+    const picked=shuffled.slice(0,3);
+    // assign targets (shuffled too so not always ascending)
+    const tgts=[...tier.targets].sort(()=>rng()-.5);
+    return picked.map((shipId,i)=>({
+        shipId,
+        shipName: COSMETICS[shipId].name,
+        target: tgts[i],
+        gems: tier.gems,
+        done: false
+    }));
+}
+
+function getOrCreateQuestState(){
+    let state=loadQuestState();
+    if(!state){
+        state={ batchIndex:0, batch:generateBatch(0), totalCompleted:0 };
+        saveQuestState(state);
+    }
+    return state;
+}
+
+function checkAndAdvanceBatch(state){
+    if(state.batch.every(q=>q.done)){
+        state.batchIndex++;
+        state.batch=generateBatch(state.batchIndex);
+        saveQuestState(state);
+        showToast("🎉 All quests done! New batch unlocked!",3000);
+        renderQuestsTab();
+    }
+}
+
+function checkQuestsAfterRun(){
+    const state=getOrCreateQuestState();
+    let anyCompleted=false;
+    state.batch.forEach(q=>{
+        if(q.done) return;
+        if(questRunScore>=q.target && chosenCosmetic===q.shipId){
+            q.done=true;
+            state.totalCompleted++;
+            gems+=q.gems; saveProgress(); updateAllRankUi();
+            showToast(`✅ Quest: Score ${q.target} with ${q.shipName} +${q.gems}💎`,3000);
+            anyCompleted=true;
+        }
+    });
+    if(anyCompleted){ saveQuestState(state); checkAndAdvanceBatch(state); }
+}
+
+function renderQuestsTab(){
+    const list=document.getElementById("questsList"); list.innerHTML="";
+    const state=getOrCreateQuestState();
+    const doneCount=state.batch.filter(q=>q.done).length;
+    const tier=QUEST_TIERS[Math.min(state.batchIndex,QUEST_TIERS.length-1)];
+    document.getElementById("questsHeader").innerHTML=
+        `Batch ${state.batchIndex+1} &nbsp;·&nbsp; ${doneCount}/3 complete &nbsp;·&nbsp; <span style="color:#ffd700">Each quest: ${tier.gems}💎</span><br>
+        <span style="color:#555;font-size:10px">Complete all 3 to unlock the next batch</span>`;
+
+    state.batch.forEach((q,i)=>{
+        const sc=COSMETICS[q.shipId];
+        const prog=Math.min(q.target, questRunScore);
+        const pct=q.done?100:Math.min(100,prog/q.target*100);
+        const rarity=i===2?"epic":i===1?"rare":"common";
+        const d=document.createElement("div");
+        d.className=`questCard questRarity-${rarity}${q.done?" done":""}`;
+        d.innerHTML=`
+            <div class="qr">${q.gems}💎</div>
+            <svg width="32" height="36" style="float:left;margin-right:8px;margin-top:2px">
+              <g fill="${sc.color}" stroke="#222" stroke-width="1.5" transform="scale(0.47)">${sc.svg}</g>
+            </svg>
+            <div class="qt">Score ${q.target.toLocaleString()} with ${q.shipName}</div>
+            ${q.done
+                ? `<div class="qdone" style="clear:both">✅ Completed!</div>`
+                : `<div class="qbar" style="clear:both"><div class="qfill" style="width:${pct}%"></div></div>
+                   <div class="qprog">${chosenCosmetic===q.shipId?prog:0} / ${q.target} ${chosenCosmetic!==q.shipId?'<span style="color:#555">(select this ship)</span>':''}</div>`}`;
+        list.appendChild(d);
+    });
+    // Progress to next batch
+    const batchesNote=document.createElement("div");
+    batchesNote.style.cssText="font-size:10px;color:#444;margin-top:10px;text-align:center";
+    batchesNote.innerText=`Total quests completed: ${state.totalCompleted}`;
+    list.appendChild(batchesNote);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -498,7 +587,7 @@ document.querySelectorAll(".tabBtn").forEach(btn=>{
         document.querySelectorAll(".tabPanel").forEach(p=>p.classList.remove("active"));
         btn.classList.add("active");
         document.getElementById(btn.dataset.tab).classList.add("active");
-        if(btn.dataset.tab==="dailyTab") renderDailyTab();
+        if(btn.dataset.tab==="questsTab") renderQuestsTab();
         if(btn.dataset.tab==="boostsTab") renderBoostsTab();
     });
 });
@@ -515,7 +604,7 @@ function showHomescreen(){
     document.getElementById("ui").style.display="none";
     document.getElementById("laserDisplay").style.display="none";
     document.getElementById("godlyCooldown").style.display="none";
-    updateAllRankUi(); drawHomeCosmetics(); drawPowerDesc(); renderDailyTab();
+    updateAllRankUi(); drawHomeCosmetics(); drawPowerDesc(); renderQuestsTab();
     ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 function hideHomescreen(){
@@ -553,7 +642,7 @@ function resetGame(){
     asteroids=[]; particles=[]; stars=[];
     shieldActive=false; xpPassiveTimer=0; gameOver=false;
     dodgedCount=0; legendRevives=0; frozenFrames=0; godlyCooldown=0;
-    dailySessionScore=0;
+    questRunScore=0;
     laserShots=0; laserFrames=0; laserLane=0;
 
     loadProgress();
@@ -637,15 +726,14 @@ function updateAsteroids(speed){
             spawnParticles(ship.x+ship.width/2,ship.y+ship.height/2,30);
             document.getElementById("gameOver").style.display="block";
             saveProgress();
-            // Check daily
-            const ch=getDailyChallenge();
-            if(chosenCosmetic===ch.shipId&&score>=ch.targetScore) completeDailyChallenge();
+            checkQuestsAfterRun();
             setTimeout(showHomescreen,1100);
         }
         if(a.y>canvas.height){
             asteroids.splice(index,1);
             if(!gameOver){
-                score+=10; dailySessionScore=score;
+                score+=10;
+                questRunScore=score;
                 document.getElementById("score").innerText=score;
                 addXp(XP_PER_ASTEROID);
                 dodgedCount++;
@@ -789,7 +877,7 @@ document.addEventListener("keydown",e=>{
     if(document.getElementById("ui").style.display==="none") return;
     if(e.key==="ArrowLeft"||e.key==="a"){ if(ship.lane>0){ship.lane--;ship.targetX=lanes[ship.lane];} }
     if(e.key==="ArrowRight"||e.key==="d"){ if(ship.lane<2){ship.lane++;ship.targetX=lanes[ship.lane];} }
-    if(e.key===" ") boostKey=true;
+    if(e.key===" "){ boostKey=true; }
     if(e.key==="r"&&gameOver){ resetGame(); animationFrameId=requestAnimationFrame(update); }
     if(e.key.toLowerCase()==="l"&&laserShots>0&&!gameOver) fireLaser();
     if(getPowerActive("Time Annihilate")&&e.key.toLowerCase()==="f"&&godlyCooldown===0&&!gameOver){
