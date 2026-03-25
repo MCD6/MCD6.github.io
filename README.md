@@ -92,9 +92,27 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 #reviveFlash{display:none;position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,255,255,.25);z-index:99999;pointer-events:none}
 #gameOver{display:none;margin-top:5px;font-size:18px;color:#ff4444}
 #godlyCooldown{position:fixed;left:50%;top:66px;transform:translateX(-50%);font-size:14px;font-weight:bold;color:#00fff7;background:rgba(0,0,0,.65);border-radius:6px;padding:2px 10px;display:none;z-index:999;box-shadow:0 0 8px #00fff7}
+#soulBurstDisplay{position:fixed;left:50%;top:88px;transform:translateX(-50%);font-size:13px;font-weight:bold;color:#fffacd;background:rgba(0,0,0,.65);border-radius:6px;padding:2px 10px;display:none;z-index:999;box-shadow:0 0 10px #fffacd88}
 #laserDisplay{position:fixed;right:8px;top:8px;font-size:14px;font-weight:bold;color:#ff6644;text-shadow:0 0 8px #ff4400;display:none;z-index:999;pointer-events:none}
+#teleportFlash{display:none;position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:99998}
 #toast{display:none;position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(0,0,0,.88);border:1px solid #00ffcc;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:bold;color:#fff770;text-shadow:0 0 8px #0ff;z-index:9999;white-space:nowrap}
 #controls-hint{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:#334;z-index:999;pointer-events:none}
+
+/* Soul Burst flash */
+@keyframes soulBurstFlash{
+  0%{opacity:0.9;transform:scale(1)}
+  50%{opacity:0.6}
+  100%{opacity:0;transform:scale(1.3)}
+}
+.soul-burst-anim{animation:soulBurstFlash .5s ease-out forwards}
+
+/* Teleport flash keyframe */
+@keyframes teleportBurst{
+  0%{opacity:.85;transform:scale(1)}
+  60%{opacity:.4;transform:scale(1.08)}
+  100%{opacity:0;transform:scale(1.18)}
+}
+.teleport-anim{animation:teleportBurst .28s ease-out forwards}
 </style>
 </head>
 <body>
@@ -103,9 +121,11 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 
 <!-- FLASH / TOAST / OVERLAYS -->
 <div id="reviveFlash"></div>
+<div id="teleportFlash"></div>
 <div id="rankUpAnimation">⭐ RANK UP ⭐</div>
 <div id="toast"></div>
 <div id="godlyCooldown"></div>
+<div id="soulBurstDisplay">✨ Soul Burst: <span id="soulBurstCount">20</span> dodges</div>
 <div id="laserDisplay">🔥 Laser: <span id="laserLeft">3</span></div>
 <div id="controls-hint">← → / A D = Move &nbsp;|&nbsp; SPACE = Boost &nbsp;|&nbsp; L = Laser &nbsp;|&nbsp; F = Annihilate &nbsp;|&nbsp; R = Restart</div>
 
@@ -177,6 +197,8 @@ const COSMETICS=[
   {id:4,name:"Admiral Eclipse",color:"#FF00FF",unlockXp:1200,powerName:"Slow Asteroids",powerDesc:"Asteroid speed −20%."},
   {id:5,name:"Legend Starcruiser",color:"#FFFF00",unlockXp:2500,powerName:"Revive",powerDesc:"Survive first crash once per game."},
   {id:6,name:"Godly Dragon",color:"#00fff7",unlockXp:4000,powerName:"Time Annihilate",powerDesc:"Press F every 30s: destroy all asteroids + freeze 3s."},
+  {id:7,name:"Mythic Phantom",color:"#ff77ff",unlockXp:6000,powerName:"Void Teleport",powerDesc:"Instantly teleport between lanes — no sliding. Teleport through asteroids harmlessly!"},
+  {id:8,name:"Eternal Seraph",color:"#fffacd",unlockXp:9000,powerName:"Soul Burst",powerDesc:"Every 20 asteroids dodged, your soul erupts — all asteroids annihilated + burst of XP."},
 ];
 const RUN_BOOSTS=[
   {id:"hyperdrive",name:"⚡ Hyperdrive",desc:"Move 2× faster between lanes",cost:1},
@@ -231,6 +253,14 @@ scene.add(shipPointLight);
 const engineLight = new THREE.PointLight(0x00ffcc, 3, 6);
 scene.add(engineLight);
 
+// Void teleport flash point light (purple, only active during teleport)
+const voidLight = new THREE.PointLight(0xff44ff, 0, 14);
+scene.add(voidLight);
+
+// Soul Burst halo light (warm gold, only active during soul burst)
+const soulLight = new THREE.PointLight(0xfffacd, 0, 20);
+scene.add(soulLight);
+
 // ══════════════════════════════════════════════════════════
 // GAME WORLD CONSTANTS
 // ══════════════════════════════════════════════════════════
@@ -248,99 +278,93 @@ let shieldMesh = null;
 let laserBeam = null;
 let engineExhaust = [];
 let particles3D = [];
-let asteroids = [];  // {x, z, mesh, rotX, rotY}
+let asteroids = [];
 let stars3D = null;
+
+// Seraph halo ring reference (for spinning)
+let seraphHaloRing = null;
+let seraphWingGlow = 0; // 0–1, pulses during soul burst
+let seraphSoulBurstFlashFrames = 0;
+
+// Phantom ghost decoy (boosted Mythic Phantom only)
+let ghostDecoy = null;
+let ghostDecoyLane = -1;
+let ghostDecoyFrames = 0;
+
+// Teleport state
+let isTeleporting = false;
+let teleportFrames = 0;
+const TELEPORT_DURATION = 8; // frames ship is invisible mid-teleport
+
+// Void burst afterimage particles
+let voidParticles = [];
+
+// Soul burst particles (Eternal Seraph)
+let soulParticles = [];
 
 // ══════════════════════════════════════════════════════════
 // STARFIELD
 // ══════════════════════════════════════════════════════════
 function createStarfield(){
   const geo = new THREE.BufferGeometry();
-  const positions = [];
-  const colors = [];
+  const positions = [], colors = [];
   for(let i=0;i<3000;i++){
-    positions.push(
-      (Math.random()-.5)*250,
-      (Math.random()-.5)*140,
-      Math.random()*-250
-    );
-    const bright = 0.5 + Math.random()*0.5;
-    colors.push(bright, bright, Math.min(1, bright + Math.random()*0.3));
+    positions.push((Math.random()-.5)*250,(Math.random()-.5)*140,Math.random()*-250);
+    const bright=0.5+Math.random()*0.5;
+    colors.push(bright,bright,Math.min(1,bright+Math.random()*0.3));
   }
   geo.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
   geo.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));
-  const mat = new THREE.PointsMaterial({size:0.35,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.9});
-  return new THREE.Points(geo, mat);
+  const mat=new THREE.PointsMaterial({size:0.35,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.9});
+  return new THREE.Points(geo,mat);
 }
 stars3D = createStarfield();
 scene.add(stars3D);
 
 function updateStarfield(speed2d){
-  const s = speed2d * SPEED_SCALE * 1.8;
-  const pos = stars3D.geometry.attributes.position.array;
+  const s=speed2d*SPEED_SCALE*1.8;
+  const pos=stars3D.geometry.attributes.position.array;
   for(let i=0;i<pos.length;i+=3){
-    pos[i+2] += s;
-    if(pos[i+2] > 80){
-      pos[i] = (Math.random()-.5)*250;
-      pos[i+1] = (Math.random()-.5)*140;
-      pos[i+2] = -250 + Math.random()*20;
-    }
+    pos[i+2]+=s;
+    if(pos[i+2]>80){pos[i]=(Math.random()-.5)*250;pos[i+1]=(Math.random()-.5)*140;pos[i+2]=-250+Math.random()*20;}
   }
-  stars3D.geometry.attributes.position.needsUpdate = true;
+  stars3D.geometry.attributes.position.needsUpdate=true;
 }
 
 // ══════════════════════════════════════════════════════════
 // LANE MARKERS
 // ══════════════════════════════════════════════════════════
 function createLaneScene(){
-  const group = new THREE.Group();
-  // Floor plane
-  const floorGeo = new THREE.PlaneGeometry(22,300);
-  const floorMat = new THREE.MeshBasicMaterial({color:0x010815,side:THREE.DoubleSide,transparent:true,opacity:0.8});
-  const floor = new THREE.Mesh(floorGeo,floorMat);
-  floor.rotation.x = Math.PI/2;
-  floor.position.set(0,-1.8,-100);
-  group.add(floor);
-
-  // Grid lines on floor
+  const group=new THREE.Group();
+  const floorGeo=new THREE.PlaneGeometry(22,300);
+  const floorMat=new THREE.MeshBasicMaterial({color:0x010815,side:THREE.DoubleSide,transparent:true,opacity:0.8});
+  const floor=new THREE.Mesh(floorGeo,floorMat);
+  floor.rotation.x=Math.PI/2; floor.position.set(0,-1.8,-100); group.add(floor);
   for(let z=-130;z<=10;z+=12){
-    const pts = [new THREE.Vector3(-11,-1.8,z), new THREE.Vector3(11,-1.8,z)];
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    const m = new THREE.LineBasicMaterial({color:0x001830,transparent:true,opacity:0.4});
-    group.add(new THREE.Line(g,m));
+    const pts=[new THREE.Vector3(-11,-1.8,z),new THREE.Vector3(11,-1.8,z)];
+    const g=new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x001830,transparent:true,opacity:0.4})));
   }
-  // Lane dividers (bright)
-  [-2.5, 2.5].forEach(x=>{
-    const pts = [new THREE.Vector3(x,-1.8,-130), new THREE.Vector3(x,-1.8,10)];
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    const m = new THREE.LineBasicMaterial({color:0x004488,transparent:true,opacity:0.7});
-    group.add(new THREE.Line(g,m));
-    // Glow duplicate
-    const m2 = new THREE.LineBasicMaterial({color:0x0088ff,transparent:true,opacity:0.25});
-    group.add(new THREE.Line(g,m2));
+  [-2.5,2.5].forEach(x=>{
+    const pts=[new THREE.Vector3(x,-1.8,-130),new THREE.Vector3(x,-1.8,10)];
+    const g=new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x004488,transparent:true,opacity:0.7})));
+    group.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x0088ff,transparent:true,opacity:0.25})));
   });
-  // Outer walls
-  [-7.5, 7.5].forEach(x=>{
-    const pts = [new THREE.Vector3(x,-1.8,-130), new THREE.Vector3(x,-1.8,10)];
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    const m = new THREE.LineBasicMaterial({color:0x002244,transparent:true,opacity:0.5});
-    group.add(new THREE.Line(g,m));
+  [-7.5,7.5].forEach(x=>{
+    const pts=[new THREE.Vector3(x,-1.8,-130),new THREE.Vector3(x,-1.8,10)];
+    const g=new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x002244,transparent:true,opacity:0.5})));
   });
-  // Lane center markers (faint)
   LANES_3D.forEach(x=>{
-    const pts = [new THREE.Vector3(x,-1.8,-130), new THREE.Vector3(x,-1.8,10)];
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    const m = new THREE.LineBasicMaterial({color:0x003355,transparent:true,opacity:0.3});
-    group.add(new THREE.Line(g,m));
+    const pts=[new THREE.Vector3(x,-1.8,-130),new THREE.Vector3(x,-1.8,10)];
+    const g=new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x003355,transparent:true,opacity:0.3})));
   });
-
-  // Horizon glow (distant light)
-  const horizonGeo = new THREE.SphereGeometry(4, 16, 16);
-  const horizonMat = new THREE.MeshBasicMaterial({color:0x0044aa,transparent:true,opacity:0.12,side:THREE.BackSide});
-  const horizon = new THREE.Mesh(horizonGeo, horizonMat);
-  horizon.position.set(0, 0, -140);
-  group.add(horizon);
-
+  const horizonGeo=new THREE.SphereGeometry(4,16,16);
+  const horizonMat=new THREE.MeshBasicMaterial({color:0x0044aa,transparent:true,opacity:0.12,side:THREE.BackSide});
+  const horizon=new THREE.Mesh(horizonGeo,horizonMat);
+  horizon.position.set(0,0,-140); group.add(horizon);
   return group;
 }
 scene.add(createLaneScene());
@@ -348,133 +372,256 @@ scene.add(createLaneScene());
 // ══════════════════════════════════════════════════════════
 // SHIP MESH FACTORY
 // ══════════════════════════════════════════════════════════
-function makeMat(hex, emissiveScale=0.35, metalness=0.6, roughness=0.25){
-  const c = new THREE.Color(hex);
-  return new THREE.MeshStandardMaterial({
-    color: c,
-    emissive: c.clone().multiplyScalar(emissiveScale),
-    metalness, roughness
-  });
+function makeMat(hex,emissiveScale=0.35,metalness=0.6,roughness=0.25){
+  const c=new THREE.Color(hex);
+  return new THREE.MeshStandardMaterial({color:c,emissive:c.clone().multiplyScalar(emissiveScale),metalness,roughness});
 }
 
 function createShipMesh(id){
-  const group = new THREE.Group();
-  const col = COSMETICS[id].color;
-  const mat = makeMat(col);
+  const group=new THREE.Group();
+  const col=COSMETICS[id].color;
+  const mat=makeMat(col);
+  seraphHaloRing = null; // reset
 
-  if(id===0){ // Cadet Viper — sleek fighter cone + fins
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.75,3.5,5),mat);
-    body.rotation.x = -Math.PI/2; body.position.z = -0.3;
-    group.add(body);
-    const finGeo = new THREE.BoxGeometry(0.12,1.1,1.4);
+  if(id===0){
+    const body=new THREE.Mesh(new THREE.ConeGeometry(0.75,3.5,5),mat);
+    body.rotation.x=-Math.PI/2; body.position.z=-0.3; group.add(body);
+    const finGeo=new THREE.BoxGeometry(0.12,1.1,1.4);
+    [-1,1].forEach(s=>{const fin=new THREE.Mesh(finGeo,mat.clone());fin.position.set(s*1.1,-0.3,1.0);group.add(fin);});
+    const cockpit=new THREE.Mesh(new THREE.SphereGeometry(0.35,6,6),makeMat(col,0.8,0.3,0.1));
+    cockpit.position.set(0,0.3,-0.5); group.add(cockpit);
+  } else if(id===1){
+    const body=new THREE.Mesh(new THREE.ConeGeometry(0.65,4,4),mat);
+    body.rotation.x=-Math.PI/2; body.position.z=-0.2; group.add(body);
+    const wingShape=new THREE.Shape();
+    wingShape.moveTo(0,0);wingShape.lineTo(3.5,0.5);wingShape.lineTo(2.8,2.5);wingShape.lineTo(0,1.5);
+    const wingGeo=new THREE.ShapeGeometry(wingShape);
+    const wingMat=new THREE.MeshStandardMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.3),side:THREE.DoubleSide,metalness:0.5,roughness:0.3});
     [-1,1].forEach(s=>{
-      const fin = new THREE.Mesh(finGeo,mat.clone());
-      fin.position.set(s*1.1,-0.3,1.0);
-      group.add(fin);
+      const wing=new THREE.Mesh(wingGeo,wingMat.clone());
+      wing.rotation.x=Math.PI/2; wing.position.set(s*0.65,-0.1,0.5);
+      if(s===-1){wing.rotation.y=Math.PI;wing.position.x=-0.65;} wing.scale.x=s; group.add(wing);
     });
-    const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.35,6,6),makeMat(col,0.8,0.3,0.1));
-    cockpit.position.set(0,0.3,-0.5);
-    group.add(cockpit);
-  }
-  else if(id===1){ // Pilot Falcon — swept delta wings
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.65,4,4),mat);
-    body.rotation.x = -Math.PI/2; body.position.z = -0.2;
-    group.add(body);
-    const wingShape = new THREE.Shape();
-    wingShape.moveTo(0,0); wingShape.lineTo(3.5,0.5); wingShape.lineTo(2.8,2.5); wingShape.lineTo(0,1.5);
-    const wingGeo = new THREE.ShapeGeometry(wingShape);
-    const wingMat = new THREE.MeshStandardMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.3),side:THREE.DoubleSide,metalness:0.5,roughness:0.3});
-    [-1,1].forEach(s=>{
-      const wing = new THREE.Mesh(wingGeo,wingMat.clone());
-      wing.rotation.x = Math.PI/2; wing.position.set(s*0.65,-0.1,0.5);
-      if(s===-1){wing.rotation.y=Math.PI; wing.position.x=-0.65;}
-      wing.scale.x = s;
-      group.add(wing);
-    });
-  }
-  else if(id===2){ // Commander Nova — oval sci-fi
-    const body = new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);
+  } else if(id===2){
+    const body=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);
     body.scale.set(0.9,0.7,2.2); group.add(body);
-    const nubGeo = new THREE.SphereGeometry(0.38,6,6);
-    [-1.3,1.3].forEach(x=>{
-      const nub = new THREE.Mesh(nubGeo,mat.clone());
-      nub.position.set(x,0,0.6); group.add(nub);
-    });
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.45,1.8,6),mat.clone());
+    const nubGeo=new THREE.SphereGeometry(0.38,6,6);
+    [-1.3,1.3].forEach(x=>{const nub=new THREE.Mesh(nubGeo,mat.clone());nub.position.set(x,0,0.6);group.add(nub);});
+    const nose=new THREE.Mesh(new THREE.ConeGeometry(0.45,1.8,6),mat.clone());
     nose.rotation.x=-Math.PI/2; nose.position.set(0,0,-2.5); group.add(nose);
-  }
-  else if(id===3){ // Captain Phoenix — diamond prism
-    const bodyGeo = new THREE.OctahedronGeometry(1.6,0);
-    const body = new THREE.Mesh(bodyGeo,mat);
+  } else if(id===3){
+    const bodyGeo=new THREE.OctahedronGeometry(1.6,0);
+    const body=new THREE.Mesh(bodyGeo,mat);
     body.scale.set(0.8,0.55,2.2); group.add(body);
-    const tailGeo = new THREE.ConeGeometry(0.5,1.8,4);
-    const tail = new THREE.Mesh(tailGeo,mat.clone());
+    const tailGeo=new THREE.ConeGeometry(0.5,1.8,4);
+    const tail=new THREE.Mesh(tailGeo,mat.clone());
     tail.rotation.x=Math.PI/2; tail.position.set(0,0,2.2); group.add(tail);
-    const wingGeo = new THREE.BoxGeometry(3.2,0.12,1.2);
-    const wing = new THREE.Mesh(wingGeo,mat.clone());
+    const wingGeo=new THREE.BoxGeometry(3.2,0.12,1.2);
+    const wing=new THREE.Mesh(wingGeo,mat.clone());
     wing.position.set(0,0,0.4); group.add(wing);
-  }
-  else if(id===4){ // Admiral Eclipse — saucer + ring
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.8,1.4,0.6,12),mat);
+  } else if(id===4){
+    const disc=new THREE.Mesh(new THREE.CylinderGeometry(1.8,1.4,0.6,12),mat);
     disc.rotation.x=Math.PI/2; group.add(disc);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.9,8,6,0,Math.PI*2,0,Math.PI/2),mat.clone());
+    const dome=new THREE.Mesh(new THREE.SphereGeometry(0.9,8,6,0,Math.PI*2,0,Math.PI/2),mat.clone());
     dome.position.set(0,0,0); group.add(dome);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.4,0.18,7,28),mat.clone());
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,0.18,7,28),mat.clone());
     ring.rotation.x=Math.PI/2; group.add(ring);
-    const nose2 = new THREE.Mesh(new THREE.ConeGeometry(0.3,1.2,5),mat.clone());
+    const nose2=new THREE.Mesh(new THREE.ConeGeometry(0.3,1.2,5),mat.clone());
     nose2.rotation.x=-Math.PI/2; nose2.position.set(0,0,-1.9); group.add(nose2);
-  }
-  else if(id===5){ // Legend Starcruiser — chunky cruiser
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.85,3.5),mat);
+  } else if(id===5){
+    const body=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.85,3.5),mat);
     group.add(body);
-    const nose3 = new THREE.Mesh(new THREE.ConeGeometry(1.05,2,4),mat.clone());
+    const nose3=new THREE.Mesh(new THREE.ConeGeometry(1.05,2,4),mat.clone());
     nose3.rotation.x=-Math.PI/2; nose3.position.set(0,0,-2.6); group.add(nose3);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(4.5,0.12,1.8),mat.clone());
+    const blade=new THREE.Mesh(new THREE.BoxGeometry(4.5,0.12,1.8),mat.clone());
     blade.position.set(0,0,0.3); group.add(blade);
-    const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,1.5,6),mat.clone());
+    const gun=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,1.5,6),mat.clone());
     gun.rotation.x=Math.PI/2; gun.position.set(0,0.5,-1.8); group.add(gun);
-  }
-  else if(id===6){ // Godly Dragon — dragon w/ spread wings
-    const body2 = new THREE.Mesh(new THREE.CylinderGeometry(0.65,1.2,4,7),mat);
+  } else if(id===6){
+    const body2=new THREE.Mesh(new THREE.CylinderGeometry(0.65,1.2,4,7),mat);
     body2.rotation.x=Math.PI/2; group.add(body2);
-    const neck = new THREE.Mesh(new THREE.ConeGeometry(0.5,2.5,6),mat.clone());
+    const neck=new THREE.Mesh(new THREE.ConeGeometry(0.5,2.5,6),mat.clone());
     neck.rotation.x=-Math.PI/2; neck.position.set(0,0.3,-2.8); group.add(neck);
-    const wShape = new THREE.Shape();
-    wShape.moveTo(0,0); wShape.lineTo(3.2,-0.8); wShape.lineTo(2.2,2.5); wShape.lineTo(0.8,2.8); wShape.lineTo(0,1.5);
-    const wGeo = new THREE.ShapeGeometry(wShape);
-    const wMat = new THREE.MeshStandardMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.4),side:THREE.DoubleSide,metalness:0.3,roughness:0.4,transparent:true,opacity:0.92});
-    [-1,1].forEach(s=>{
-      const w = new THREE.Mesh(wGeo,wMat.clone());
-      w.rotation.x = Math.PI/2; w.scale.x = s; w.position.set(s*0.65,-0.2,0.5);
-      group.add(w);
+    const wShape=new THREE.Shape();
+    wShape.moveTo(0,0);wShape.lineTo(3.2,-0.8);wShape.lineTo(2.2,2.5);wShape.lineTo(0.8,2.8);wShape.lineTo(0,1.5);
+    const wGeo=new THREE.ShapeGeometry(wShape);
+    const wMat=new THREE.MeshStandardMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.4),side:THREE.DoubleSide,metalness:0.3,roughness:0.4,transparent:true,opacity:0.92});
+    [-1,1].forEach(s=>{const w=new THREE.Mesh(wGeo,wMat.clone());w.rotation.x=Math.PI/2;w.scale.x=s;w.position.set(s*0.65,-0.2,0.5);group.add(w);});
+    const wMark=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.35,side:THREE.DoubleSide});
+    const wm=new THREE.Shape();wm.moveTo(0.3,0.3);wm.lineTo(2,0.2);wm.lineTo(1.5,1.8);wm.lineTo(0.3,1.5);
+    const wmGeo=new THREE.ShapeGeometry(wm);
+    [-1,1].forEach(s=>{const wmark=new THREE.Mesh(wmGeo,wMark.clone());wmark.rotation.x=Math.PI/2;wmark.scale.x=s;wmark.position.set(s*0.66,-0.18,0.5);group.add(wmark);});
+  } else if(id===7){
+    // ── Mythic Phantom ──────────────────────────────────────
+    const hullGeo = new THREE.ConeGeometry(1.1, 4.5, 3);
+    const hull = new THREE.Mesh(hullGeo, mat);
+    hull.rotation.x = -Math.PI/2;
+    hull.position.z = -0.2;
+    group.add(hull);
+    const vwShape = new THREE.Shape();
+    vwShape.moveTo(0, 0);vwShape.lineTo(3.8, 0.2);vwShape.lineTo(3.0, 1.6);vwShape.lineTo(1.2, 2.2);vwShape.lineTo(0, 1.4);
+    const vwGeo = new THREE.ShapeGeometry(vwShape);
+    const vwMat = new THREE.MeshStandardMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.55),side:THREE.DoubleSide,metalness:0.2,roughness:0.3,transparent:true,opacity:0.88});
+    [-1,1].forEach(s=>{const vw=new THREE.Mesh(vwGeo,vwMat.clone());vw.rotation.x=Math.PI/2;vw.scale.x=s;vw.position.set(s*0.55,-0.05,0.6);group.add(vw);});
+    const orbGeo = new THREE.SphereGeometry(0.42, 10, 10);
+    const orbMat = new THREE.MeshStandardMaterial({color:0x220033,emissive:new THREE.Color(col),emissiveIntensity:1.2,metalness:0.0,roughness:0.0,transparent:true,opacity:0.95});
+    const orb = new THREE.Mesh(orbGeo, orbMat);
+    orb.position.set(0, 0.22, -0.6);group.add(orb);
+    const vRingGeo = new THREE.TorusGeometry(0.62, 0.06, 7, 22);
+    const vRingMat = new THREE.MeshBasicMaterial({color:new THREE.Color(col),transparent:true,opacity:0.8});
+    const vRing = new THREE.Mesh(vRingGeo, vRingMat);
+    vRing.rotation.x=Math.PI/2;vRing.position.set(0,0.22,-0.6);group.add(vRing);
+    const tfGeo = new THREE.BoxGeometry(0.1, 1.0, 1.0);
+    [-0.9,0.9].forEach(x=>{const tf=new THREE.Mesh(tfGeo,mat.clone());tf.position.set(x,0.1,1.5);group.add(tf);});
+    const pgGeo = new THREE.CircleGeometry(0.65, 14);
+    const pgMat = new THREE.MeshBasicMaterial({color:new THREE.Color(col),transparent:true,opacity:0.9,side:THREE.DoubleSide});
+    const pg = new THREE.Mesh(pgGeo, pgMat);
+    pg.rotation.y=Math.PI;pg.position.set(0,0,1.85);group.add(pg);
+
+  } else if(id===8){
+    // ══════════════════════════════════════════════════════
+    // ── Eternal Seraph ────────────────────────────────────
+    // Sleek diamond hull — celestial, angelic, luminous
+    // ══════════════════════════════════════════════════════
+    const warmGold = new THREE.Color(col);
+
+    // Main hull — tall diamond/chevron body
+    const hullGeo = new THREE.OctahedronGeometry(1.5, 0);
+    const hull = new THREE.Mesh(hullGeo, makeMat(col, 0.55, 0.35, 0.15));
+    hull.scale.set(0.65, 0.42, 2.1);
+    hull.position.z = -0.1;
+    group.add(hull);
+
+    // Forward prow — elongated spike
+    const prowGeo = new THREE.ConeGeometry(0.32, 2.2, 5);
+    const prow = new THREE.Mesh(prowGeo, makeMat(col, 0.9, 0.2, 0.08));
+    prow.rotation.x = -Math.PI / 2;
+    prow.position.set(0, 0, -2.4);
+    group.add(prow);
+
+    // Swept seraph wings — large, feather-like panels
+    const swShape = new THREE.Shape();
+    swShape.moveTo(0,   0  );
+    swShape.lineTo(4.2, -0.3);
+    swShape.lineTo(3.4,  2.0);
+    swShape.lineTo(2.0,  3.2);
+    swShape.lineTo(0.6,  3.0);
+    swShape.lineTo(0,    1.6);
+    const swGeo = new THREE.ShapeGeometry(swShape);
+    const swMat = new THREE.MeshStandardMaterial({
+      color: warmGold,
+      emissive: warmGold.clone().multiplyScalar(0.35),
+      side: THREE.DoubleSide, metalness: 0.25, roughness: 0.2,
+      transparent: true, opacity: 0.86
     });
-    // White wing markings
-    const wMark = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.35,side:THREE.DoubleSide});
-    const wm = new THREE.Shape();
-    wm.moveTo(0.3,0.3); wm.lineTo(2,0.2); wm.lineTo(1.5,1.8); wm.lineTo(0.3,1.5);
-    const wmGeo = new THREE.ShapeGeometry(wm);
-    [-1,1].forEach(s=>{
-      const wmark = new THREE.Mesh(wmGeo,wMark.clone());
-      wmark.rotation.x=Math.PI/2; wmark.scale.x=s; wmark.position.set(s*0.66,-0.18,0.5);
-      group.add(wmark);
+    [-1, 1].forEach(s => {
+      const sw = new THREE.Mesh(swGeo, swMat.clone());
+      sw.rotation.x = Math.PI / 2;
+      sw.scale.x = s;
+      sw.position.set(s * 0.6, -0.08, 0.2);
+      group.add(sw);
+    });
+
+    // Wing light veins — thin bright lines across each wing
+    const veinMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide
+    });
+    const vShape = new THREE.Shape();
+    vShape.moveTo(0.2, 0.4); vShape.lineTo(3.6, 0.1); vShape.lineTo(2.8, 1.5); vShape.lineTo(0.2, 1.4);
+    const vGeo = new THREE.ShapeGeometry(vShape);
+    [-1, 1].forEach(s => {
+      const vein = new THREE.Mesh(vGeo, veinMat.clone());
+      vein.rotation.x = Math.PI / 2;
+      vein.scale.x = s;
+      vein.position.set(s * 0.61, -0.07, 0.21);
+      group.add(vein);
+    });
+
+    // Secondary upper feather wings — smaller, higher
+    const sf2Shape = new THREE.Shape();
+    sf2Shape.moveTo(0,   0  );
+    sf2Shape.lineTo(2.8, 0.1);
+    sf2Shape.lineTo(2.0, 1.6);
+    sf2Shape.lineTo(0.4, 1.8);
+    sf2Shape.lineTo(0,   0.8);
+    const sf2Geo = new THREE.ShapeGeometry(sf2Shape);
+    const sf2Mat = new THREE.MeshStandardMaterial({
+      color: warmGold,
+      emissive: warmGold.clone().multiplyScalar(0.5),
+      side: THREE.DoubleSide, metalness: 0.15, roughness: 0.15,
+      transparent: true, opacity: 0.72
+    });
+    [-1, 1].forEach(s => {
+      const sf2 = new THREE.Mesh(sf2Geo, sf2Mat.clone());
+      sf2.rotation.x = Math.PI / 2;
+      sf2.rotation.z = -s * 0.18; // slight upward cant
+      sf2.scale.x = s;
+      sf2.position.set(s * 0.58, 0.5, -0.3);
+      group.add(sf2);
+    });
+
+    // Halo ring — the Eternal's iconic signature
+    const haloGeo = new THREE.TorusGeometry(2.1, 0.1, 10, 36);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0xfffacd, transparent: true, opacity: 0.88
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.rotation.x = Math.PI * 0.1; // slight forward tilt
+    halo.position.set(0, 0.7, -0.5);
+    group.add(halo);
+    seraphHaloRing = halo; // track for spinning
+
+    // Halo outer glow ring (slightly larger, dimmer)
+    const haloGlowGeo = new THREE.TorusGeometry(2.5, 0.05, 6, 32);
+    const haloGlowMat = new THREE.MeshBasicMaterial({
+      color: 0xffd080, transparent: true, opacity: 0.35
+    });
+    const haloGlow = new THREE.Mesh(haloGlowGeo, haloGlowMat);
+    haloGlow.rotation.x = Math.PI * 0.1;
+    haloGlow.position.set(0, 0.7, -0.5);
+    group.add(haloGlow);
+
+    // Soul orb — luminous heart at cockpit
+    const sOrbGeo = new THREE.SphereGeometry(0.45, 14, 14);
+    const sOrbMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0xffffff),
+      emissive: warmGold.clone(),
+      emissiveIntensity: 2.2,
+      metalness: 0.0, roughness: 0.0,
+      transparent: true, opacity: 1.0
+    });
+    const sOrb = new THREE.Mesh(sOrbGeo, sOrbMat);
+    sOrb.position.set(0, 0.28, -0.7);
+    group.add(sOrb);
+
+    // Orb inner core (bright white)
+    const coreGeo = new THREE.SphereGeometry(0.22, 8, 8);
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    core.position.set(0, 0.28, -0.7);
+    group.add(core);
+
+    // Tail fin pair — swept upward
+    const tfGeo = new THREE.BoxGeometry(0.08, 1.1, 0.9);
+    [-0.8, 0.8].forEach(x => {
+      const tf = new THREE.Mesh(tfGeo, makeMat(col, 0.4, 0.4, 0.2));
+      tf.position.set(x, 0.25, 1.55);
+      tf.rotation.z = x > 0 ? -0.15 : 0.15;
+      group.add(tf);
     });
   }
 
-  // Engine nozzle (shared)
-  const nozzleGeo = new THREE.CylinderGeometry(0.3,0.5,0.4,7);
-  const nozzleMat = new THREE.MeshStandardMaterial({color:0x222244,emissive:new THREE.Color(col).multiplyScalar(0.5),metalness:0.8,roughness:0.2});
-  const nozzle = new THREE.Mesh(nozzleGeo,nozzleMat);
-  nozzle.rotation.x=Math.PI/2; nozzle.position.set(0,0,1.5);
-  group.add(nozzle);
+  // Engine nozzle (shared for all)
+  const nozzleGeo=new THREE.CylinderGeometry(0.3,0.5,0.4,7);
+  const nozzleMat=new THREE.MeshStandardMaterial({color:0x222244,emissive:new THREE.Color(col).multiplyScalar(0.5),metalness:0.8,roughness:0.2});
+  const nozzle=new THREE.Mesh(nozzleGeo,nozzleMat);
+  nozzle.rotation.x=Math.PI/2; nozzle.position.set(0,0,1.5); group.add(nozzle);
 
-  // Engine glow disc
-  const glowGeo = new THREE.CircleGeometry(0.55,12);
-  const glowMat = new THREE.MeshBasicMaterial({color:new THREE.Color(col),transparent:true,opacity:0.7,side:THREE.DoubleSide});
-  const glow = new THREE.Mesh(glowGeo,glowMat);
-  glow.rotation.y=Math.PI; glow.position.set(0,0,1.75);
-  group.add(glow);
+  const glowGeo=new THREE.CircleGeometry(0.55,12);
+  const glowMat=new THREE.MeshBasicMaterial({color:new THREE.Color(col),transparent:true,opacity:0.7,side:THREE.DoubleSide});
+  const glow=new THREE.Mesh(glowGeo,glowMat);
+  glow.rotation.y=Math.PI; glow.position.set(0,0,1.75); group.add(glow);
 
-  // Slight scale
   group.scale.set(0.85,0.85,0.85);
   return group;
 }
@@ -482,27 +629,22 @@ function createShipMesh(id){
 // ══════════════════════════════════════════════════════════
 // ASTEROID MESH FACTORY
 // ══════════════════════════════════════════════════════════
-const ASTEROID_GEO = (() => {
-  const g = new THREE.IcosahedronGeometry(1.1, 1);
-  const pos = g.attributes.position;
-  for(let i=0;i<pos.count;i++){
-    const s = 0.7 + Math.random()*0.5;
-    pos.setXYZ(i, pos.getX(i)*s, pos.getY(i)*s, pos.getZ(i)*s);
-  }
-  g.computeVertexNormals();
-  return g;
+const ASTEROID_GEO=(()=>{
+  const g=new THREE.IcosahedronGeometry(1.1,1);
+  const pos=g.attributes.position;
+  for(let i=0;i<pos.count;i++){const s=0.7+Math.random()*0.5;pos.setXYZ(i,pos.getX(i)*s,pos.getY(i)*s,pos.getZ(i)*s);}
+  g.computeVertexNormals(); return g;
 })();
-const ASTEROID_MATS = [
+const ASTEROID_MATS=[
   new THREE.MeshStandardMaterial({color:0x776655,roughness:0.95,metalness:0.05}),
   new THREE.MeshStandardMaterial({color:0x665544,roughness:0.9,metalness:0.1}),
   new THREE.MeshStandardMaterial({color:0x888877,roughness:0.92,metalness:0.08}),
 ];
-
 function createAsteroidMesh(){
-  const mat = ASTEROID_MATS[Math.floor(Math.random()*ASTEROID_MATS.length)].clone();
-  const mesh = new THREE.Mesh(ASTEROID_GEO, mat);
-  const s = 0.8 + Math.random()*0.6;
-  mesh.scale.set(s, s*(0.8+Math.random()*0.4), s*(0.8+Math.random()*0.4));
+  const mat=ASTEROID_MATS[Math.floor(Math.random()*ASTEROID_MATS.length)].clone();
+  const mesh=new THREE.Mesh(ASTEROID_GEO,mat);
+  const s=0.8+Math.random()*0.6;
+  mesh.scale.set(s,s*(0.8+Math.random()*0.4),s*(0.8+Math.random()*0.4));
   mesh.rotation.set(Math.random()*Math.PI*2,Math.random()*Math.PI*2,Math.random()*Math.PI*2);
   return mesh;
 }
@@ -511,32 +653,140 @@ function createAsteroidMesh(){
 // SHIELD MESH
 // ══════════════════════════════════════════════════════════
 function createShieldMesh(){
-  const geo = new THREE.SphereGeometry(2.2, 18, 14);
-  const mat = new THREE.MeshBasicMaterial({color:0x00ffff,wireframe:true,transparent:true,opacity:0.35});
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.visible = false;
-  return mesh;
+  const geo=new THREE.SphereGeometry(2.2,18,14);
+  const mat=new THREE.MeshBasicMaterial({color:0x00ffff,wireframe:true,transparent:true,opacity:0.35});
+  const mesh=new THREE.Mesh(geo,mat); mesh.visible=false; return mesh;
+}
+
+// ══════════════════════════════════════════════════════════
+// GHOST DECOY (Boosted Mythic Phantom)
+// ══════════════════════════════════════════════════════════
+function createGhostDecoy(fromLane){
+  if(ghostDecoy){scene.remove(ghostDecoy);ghostDecoy=null;}
+  const g = new THREE.Group();
+  const col = "#ff77ff";
+  const ghostMat = new THREE.MeshStandardMaterial({
+    color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.8),
+    transparent:true,opacity:0.38,metalness:0.1,roughness:0.5,wireframe:false
+  });
+  const hullGeo = new THREE.ConeGeometry(1.1, 4.5, 3);
+  const hull = new THREE.Mesh(hullGeo, ghostMat.clone());
+  hull.rotation.x=-Math.PI/2;hull.position.z=-0.2;g.add(hull);
+  const sphereGeo = new THREE.SphereGeometry(0.42, 8, 8);
+  const sphereMat = ghostMat.clone();sphereMat.opacity=0.6;
+  const orb = new THREE.Mesh(sphereGeo, sphereMat);
+  orb.position.set(0,0.22,-0.6);g.add(orb);
+  g.scale.set(0.85,0.85,0.85);
+  g.position.set(LANES_3D[fromLane],0,0);
+  scene.add(g);
+  ghostDecoy=g;ghostDecoyLane=fromLane;ghostDecoyFrames=300;
+}
+
+function updateGhostDecoy(){
+  if(!ghostDecoy)return;
+  ghostDecoyFrames--;
+  const pulse=0.2+Math.sin(Date.now()*0.006)*0.18;
+  ghostDecoy.traverse(child=>{
+    if(child.material&&child.material.opacity!==undefined){
+      child.material.opacity=Math.max(0,pulse*(ghostDecoyFrames/300));
+    }
+  });
+  ghostDecoy.rotation.y+=0.015;
+  if(ghostDecoyFrames<=0){scene.remove(ghostDecoy);ghostDecoy=null;ghostDecoyLane=-1;}
+}
+
+// ══════════════════════════════════════════════════════════
+// VOID BURST PARTICLES (teleport effect)
+// ══════════════════════════════════════════════════════════
+function spawnVoidBurst(x,y,z){
+  const colors=[0xff44ff,0xaa00ff,0xffffff,0xff99ff,0x6600ff];
+  for(let i=0;i<28;i++){
+    const geo=new THREE.SphereGeometry(0.06+Math.random()*0.12,4,4);
+    const mat=new THREE.MeshBasicMaterial({color:colors[Math.floor(Math.random()*colors.length)],transparent:true,opacity:0.95,blending:THREE.AdditiveBlending});
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.position.set(x+(Math.random()-.5)*1.5,y+(Math.random()-.5)*1.5,z+(Math.random()-.5)*1.5);
+    const sp=0.2+Math.random()*0.18;const angle=Math.random()*Math.PI*2;
+    voidParticles.push({mesh,vx:Math.cos(angle)*sp*(Math.random()-.5)*2,vy:(Math.random()-.5)*sp,vz:Math.sin(angle)*sp*(Math.random()-.5)*2,life:30+Math.floor(Math.random()*20),maxLife:50});
+    scene.add(mesh);
+  }
+}
+
+function updateVoidParticles(){
+  for(let i=voidParticles.length-1;i>=0;i--){
+    const p=voidParticles[i];
+    p.mesh.position.x+=p.vx;p.mesh.position.y+=p.vy;p.mesh.position.z+=p.vz;
+    p.vx*=0.92;p.vy*=0.92;p.vz*=0.92;p.life--;
+    p.mesh.material.opacity=(p.life/p.maxLife)*0.9;
+    p.mesh.scale.setScalar(Math.max(0.05,p.life/p.maxLife));
+    if(p.life<=0){scene.remove(p.mesh);voidParticles.splice(i,1);}
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// SOUL BURST PARTICLES (Eternal Seraph explosion)
+// ══════════════════════════════════════════════════════════
+function spawnSoulBurst(){
+  // Radiating golden rays from ship position
+  const colors=[0xfffacd, 0xfff080, 0xffd700, 0xffffff, 0xffe4a0, 0xffcc44];
+  const sx=ship.x, sy=0, sz=0;
+  for(let i=0;i<48;i++){
+    const geo=new THREE.SphereGeometry(0.1+Math.random()*0.18,4,4);
+    const mat=new THREE.MeshBasicMaterial({
+      color:colors[Math.floor(Math.random()*colors.length)],
+      transparent:true,opacity:1.0,blending:THREE.AdditiveBlending
+    });
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.position.set(sx+(Math.random()-.5)*2,sy+(Math.random()-.5)*2,sz+(Math.random()-.5)*4);
+    const speed=0.28+Math.random()*0.24;
+    const angle=Math.random()*Math.PI*2;
+    const elevation=(Math.random()-.5)*Math.PI;
+    soulParticles.push({
+      mesh,
+      vx:Math.cos(angle)*Math.cos(elevation)*speed,
+      vy:Math.sin(elevation)*speed*0.6,
+      vz:Math.sin(angle)*Math.cos(elevation)*speed - 0.08,
+      life:50+Math.floor(Math.random()*20),
+      maxLife:70
+    });
+    scene.add(mesh);
+  }
+  // Seraph-specific: flash halo brighter
+  seraphSoulBurstFlashFrames = 45;
+  soulLight.position.set(sx, sy+1, sz);
+  soulLight.intensity = 22;
+}
+
+function updateSoulParticles(){
+  for(let i=soulParticles.length-1;i>=0;i--){
+    const p=soulParticles[i];
+    p.mesh.position.x+=p.vx;p.mesh.position.y+=p.vy;p.mesh.position.z+=p.vz;
+    p.vx*=0.93;p.vy*=0.93;p.vz*=0.93;p.life--;
+    p.mesh.material.opacity=Math.pow(p.life/p.maxLife,0.7)*0.95;
+    p.mesh.scale.setScalar(Math.max(0.04,p.life/p.maxLife*1.3));
+    if(p.life<=0){scene.remove(p.mesh);soulParticles.splice(i,1);}
+  }
+  // Decay halo flash and soul light
+  if(seraphSoulBurstFlashFrames>0){seraphSoulBurstFlashFrames--;}
+  if(soulLight.intensity>0)soulLight.intensity=Math.max(0,soulLight.intensity*0.88);
 }
 
 // ══════════════════════════════════════════════════════════
 // ENGINE EXHAUST PARTICLES
 // ══════════════════════════════════════════════════════════
-function spawnEngineParticle(x, col){
-  const geo = new THREE.SphereGeometry(0.08, 4, 4);
-  const c = new THREE.Color(col);
-  const mat = new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.9});
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(x + (Math.random()-.5)*0.5, (Math.random()-.5)*0.4, 1.8+(Math.random()*.5));
+function spawnEngineParticle(x,col){
+  const geo=new THREE.SphereGeometry(0.08,4,4);
+  const c=new THREE.Color(col);
+  const mat=new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.9});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.position.set(x+(Math.random()-.5)*0.5,(Math.random()-.5)*0.4,1.8+(Math.random()*.5));
   scene.add(mesh);
-  engineExhaust.push({mesh, life:18, maxLife:18, vz:(0.1+Math.random()*0.15)});
+  engineExhaust.push({mesh,life:18,maxLife:18,vz:(0.1+Math.random()*0.15)});
 }
 function updateEngineExhaust(){
   for(let i=engineExhaust.length-1;i>=0;i--){
     const p=engineExhaust[i];
-    p.mesh.position.z += p.vz;
-    p.mesh.position.y -= 0.02;
-    p.life--;
-    p.mesh.material.opacity = (p.life/p.maxLife)*0.7;
+    p.mesh.position.z+=p.vz;p.mesh.position.y-=0.02;p.life--;
+    p.mesh.material.opacity=(p.life/p.maxLife)*0.7;
     p.mesh.scale.setScalar(p.life/p.maxLife);
     if(p.life<=0){scene.remove(p.mesh);engineExhaust.splice(i,1);}
   }
@@ -545,32 +795,22 @@ function updateEngineExhaust(){
 // ══════════════════════════════════════════════════════════
 // 3D PARTICLES (explosion)
 // ══════════════════════════════════════════════════════════
-function spawnParticles3D(x, y, z, n){
+function spawnParticles3D(x,y,z,n){
   for(let i=0;i<n;i++){
-    const geo = new THREE.SphereGeometry(0.14, 3, 3);
-    const mat = new THREE.MeshBasicMaterial({
-      color: Math.random()>.5 ? 0xff6600 : 0xffaa00,
-      transparent:true, opacity:0.95
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x+(Math.random()-.5)*2, y+(Math.random()-.5)*2, z+(Math.random()-.5)*2);
-    const sp = 0.12;
-    particles3D.push({
-      mesh,
-      vx:(Math.random()-.5)*sp*2,
-      vy:(Math.random()-.5)*sp*2,
-      vz:(Math.random()-.5)*sp*2,
-      life:40, maxLife:40
-    });
+    const geo=new THREE.SphereGeometry(0.14,3,3);
+    const mat=new THREE.MeshBasicMaterial({color:Math.random()>.5?0xff6600:0xffaa00,transparent:true,opacity:0.95});
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.position.set(x+(Math.random()-.5)*2,y+(Math.random()-.5)*2,z+(Math.random()-.5)*2);
+    const sp=0.12;
+    particles3D.push({mesh,vx:(Math.random()-.5)*sp*2,vy:(Math.random()-.5)*sp*2,vz:(Math.random()-.5)*sp*2,life:40,maxLife:40});
     scene.add(mesh);
   }
 }
 function updateParticles3D(){
   for(let i=particles3D.length-1;i>=0;i--){
     const p=particles3D[i];
-    p.mesh.position.x+=p.vx; p.mesh.position.y+=p.vy; p.mesh.position.z+=p.vz;
-    p.life--;
-    p.mesh.material.opacity = (p.life/p.maxLife)*0.9;
+    p.mesh.position.x+=p.vx;p.mesh.position.y+=p.vy;p.mesh.position.z+=p.vz;p.life--;
+    p.mesh.material.opacity=(p.life/p.maxLife)*0.9;
     p.mesh.scale.setScalar(Math.max(0.1,p.life/p.maxLife));
     if(p.life<=0){scene.remove(p.mesh);particles3D.splice(i,1);}
   }
@@ -579,66 +819,140 @@ function updateParticles3D(){
 // ══════════════════════════════════════════════════════════
 // LASER BEAM
 // ══════════════════════════════════════════════════════════
-let laserFrames3D = 0, laserLane3D = 0;
+let laserFrames3D=0,laserLane3D=0;
 function updateLaser3D(){
   if(laserBeam){
-    if(laserFrames3D>0){
-      laserBeam.material.opacity = laserFrames3D/20;
-      laserFrames3D--;
-    } else {
-      scene.remove(laserBeam);
-      laserBeam = null;
-    }
+    if(laserFrames3D>0){laserBeam.material.opacity=laserFrames3D/20;laserFrames3D--;}
+    else{scene.remove(laserBeam);laserBeam=null;}
   }
 }
 function showLaserBeam(laneX){
-  if(laserBeam) scene.remove(laserBeam);
-  const geo = new THREE.CylinderGeometry(0.08, 0.08, 140, 6);
-  const mat = new THREE.MeshBasicMaterial({color:0xff4400,transparent:true,opacity:1,blending:THREE.AdditiveBlending});
-  laserBeam = new THREE.Mesh(geo, mat);
-  laserBeam.rotation.x = Math.PI/2;
-  laserBeam.position.set(laneX, 0, -60);
-  scene.add(laserBeam);
-  laserFrames3D = 20;
+  if(laserBeam)scene.remove(laserBeam);
+  const geo=new THREE.CylinderGeometry(0.08,0.08,140,6);
+  const mat=new THREE.MeshBasicMaterial({color:0xff4400,transparent:true,opacity:1,blending:THREE.AdditiveBlending});
+  laserBeam=new THREE.Mesh(geo,mat);
+  laserBeam.rotation.x=Math.PI/2;laserBeam.position.set(laneX,0,-60);
+  scene.add(laserBeam);laserFrames3D=20;
+}
+
+// ══════════════════════════════════════════════════════════
+// SCREEN TELEPORT FLASH
+// ══════════════════════════════════════════════════════════
+function doTeleportScreenFlash(){
+  const el=document.getElementById("teleportFlash");
+  el.style.background="radial-gradient(ellipse at center, rgba(255,80,255,0.7) 0%, rgba(120,0,200,0.4) 50%, transparent 100%)";
+  el.style.display="block";el.classList.remove("teleport-anim");void el.offsetWidth;
+  el.classList.add("teleport-anim");
+  setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},300);
+}
+
+// Soul burst screen flash (gold)
+function doSoulBurstScreenFlash(){
+  const el=document.getElementById("teleportFlash");
+  el.style.background="radial-gradient(ellipse at center, rgba(255,250,150,0.75) 0%, rgba(255,200,50,0.45) 45%, transparent 100%)";
+  el.style.display="block";el.classList.remove("teleport-anim");void el.offsetWidth;
+  el.classList.add("teleport-anim");
+  setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},500);
 }
 
 // ══════════════════════════════════════════════════════════
 // GAME STATE
 // ══════════════════════════════════════════════════════════
-let score, highScore, gameOver, baseSpeed, boostKey, difficultyTimer;
-let xp, xpMilestoneNext, xpPassiveTimer, shieldActive, dodgedCount;
-let legendRevives=0, frozenFrames=0, godlyCooldown=0;
-let boostedShips=[], gems=0;
+let score,highScore,gameOver,baseSpeed,boostKey,difficultyTimer;
+let xp,xpMilestoneNext,xpPassiveTimer,shieldActive,dodgedCount;
+let legendRevives=0,frozenFrames=0,godlyCooldown=0;
+let boostedShips=[],gems=0;
 let chosenCosmetic=0;
-let startShieldActive=false, startShieldFrames=0;
+let startShieldActive=false,startShieldFrames=0;
 let activeRunBoosts=[];
-let laserShots=0, laserFrames=0, laserLane=0;
+let laserShots=0,laserFrames=0,laserLane=0;
 let playerName="Pilot";
 let questRunScore=0;
-let animationFrameId=null, idleAnimId=null;
+let animationFrameId=null,idleAnimId=null;
 
-const ship = {
-  lane:1, x:0, targetX:0, moveSpeed:.11, tilt:0
-};
+const ship={lane:1,x:0,targetX:0,moveSpeed:.11,tilt:0};
 
 // ══════════════════════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════════════════════
-function hasRunBoost(id){return activeRunBoosts.includes(id)}
-function getPowerActive(name){return COSMETICS[chosenCosmetic].powerName===name}
-function isBoosted(id){return boostedShips.includes(id)}
-function getBoostMultiplier(){if(chosenCosmetic===1&&isBoosted(1))return 4;if(getPowerActive("Double Boost"))return 2;return 1}
-function getAsteroidSpeedMult(){let m=1;if(chosenCosmetic===4&&isBoosted(4))m*=.6;else if(getPowerActive("Slow Asteroids"))m*=.8;if(hasRunBoost("null_field"))m*=.65;return m}
-function getMilestoneXpBonus(){if(chosenCosmetic===3&&isBoosted(3))return 2;if(getPowerActive("Milestone XP+"))return 1.5;return 1}
-function getShieldEveryDodged(){if(chosenCosmetic===2&&isBoosted(2))return 2;if(getPowerActive("Shield on Dodge"))return 5;return null}
-function getLegendRevives(){if(chosenCosmetic===5&&isBoosted(5))return 2;if(getPowerActive("Revive"))return 1;return 0}
-function getGodlyCooldownFrames(){return(chosenCosmetic===6&&isBoosted(6))?900:1800}
-function getBoostedDesc(id){return["Start invulnerable (shield) for 10s","Boost is 4×","Shield every 2 dodges","+100% XP for milestones","Asteroid speed −40%","Two revives per game","Half cooldown: F every 15s"][id]||""}
+function isSeraph(){return chosenCosmetic===8;}
+function isPhantomatic(){return chosenCosmetic===7;}
+function hasRunBoost(id){return activeRunBoosts.includes(id);}
+function getPowerActive(name){return COSMETICS[chosenCosmetic].powerName===name;}
+function isBoosted(id){return boostedShips.includes(id);}
+function getBoostMultiplier(){if(chosenCosmetic===1&&isBoosted(1))return 4;if(getPowerActive("Double Boost"))return 2;return 1;}
+function getAsteroidSpeedMult(){let m=1;if(chosenCosmetic===4&&isBoosted(4))m*=.6;else if(getPowerActive("Slow Asteroids"))m*=.8;if(hasRunBoost("null_field"))m*=.65;return m;}
+function getMilestoneXpBonus(){if(chosenCosmetic===3&&isBoosted(3))return 2;if(getPowerActive("Milestone XP+"))return 1.5;return 1;}
+function getShieldEveryDodged(){if(chosenCosmetic===2&&isBoosted(2))return 2;if(getPowerActive("Shield on Dodge"))return 5;return null;}
+function getLegendRevives(){if(chosenCosmetic===5&&isBoosted(5))return 2;if(getPowerActive("Revive"))return 1;return 0;}
+function getGodlyCooldownFrames(){return(chosenCosmetic===6&&isBoosted(6))?900:1800;}
+// Soul Burst triggers every N dodges
+function getSoulBurstEvery(){
+  if(!isSeraph())return 999999;
+  return(isBoosted(8))?10:20;
+}
+function getBoostedDesc(id){
+  return[
+    "Start invulnerable (shield) for 10s",
+    "Boost is 4×",
+    "Shield every 2 dodges",
+    "+100% XP for milestones",
+    "Asteroid speed −40%",
+    "Two revives per game",
+    "Half cooldown: F every 15s",
+    "Ghost decoy on teleport — absorbs 1 hit",
+    "Soul Burst every 10 dodges + double XP burst"
+  ][id]||"";
+}
 
 function flashScreen(color){
   const f=document.getElementById("reviveFlash");
-  f.style.background=color; f.style.display="block";
+  f.style.background=color;f.style.display="block";
   setTimeout(()=>f.style.display="none",300);
+}
+
+// ══════════════════════════════════════════════════════════
+// SOUL BURST (Eternal Seraph power)
+// ══════════════════════════════════════════════════════════
+function triggerSoulBurst(){
+  // Annihilate all asteroids
+  const count=asteroids.length;
+  asteroids.forEach(a=>{
+    spawnParticles3D(a.x,0,a.z,6);
+    if(a.mesh)scene.remove(a.mesh);
+  });
+  asteroids=[];
+  // XP burst
+  const xpGain=isBoosted(8)?count*30:count*15;
+  if(xpGain>0)addXp(xpGain);
+  // VFX
+  spawnSoulBurst();
+  doSoulBurstScreenFlash();
+  const msg=isBoosted(8)?`✨ SOUL BURST! +${xpGain} XP (BOOSTED)`:`✨ SOUL BURST! +${xpGain} XP`;
+  showToast(msg,2200);
+}
+
+// ══════════════════════════════════════════════════════════
+// TELEPORT MECHANICS (Mythic Phantom)
+// ══════════════════════════════════════════════════════════
+function doPhantomTeleport(targetLane){
+  if(isTeleporting||gameOver)return;
+  const fromLane=ship.lane;
+  if(fromLane===targetLane)return;
+  const fromX=LANES_3D[fromLane],toX=LANES_3D[targetLane];
+  isTeleporting=true;teleportFrames=TELEPORT_DURATION;
+  spawnVoidBurst(fromX,0,0);
+  if(isBoosted(7))createGhostDecoy(fromLane);
+  if(shipGroup)shipGroup.visible=false;
+  doTeleportScreenFlash();
+  voidLight.position.set(fromX,0,0);voidLight.intensity=18;
+  setTimeout(()=>{
+    ship.lane=targetLane;ship.x=toX;ship.targetX=toX;
+    if(shipGroup){shipGroup.position.x=toX;shipGroup.visible=true;}
+    spawnVoidBurst(toX,0,0);doTeleportScreenFlash();
+    voidLight.position.set(toX,0,0);voidLight.intensity=14;
+    isTeleporting=false;
+  },TELEPORT_DURATION*16);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -664,20 +978,20 @@ function loadProgress(){
 // ══════════════════════════════════════════════════════════
 // GEM / XP UI
 // ══════════════════════════════════════════════════════════
-function updateGemsUi(){document.querySelectorAll(".gemCount").forEach(el=>el.innerText=gems)}
-function getXpRank(v){for(let i=XP_RANKS.length-1;i>=0;i--)if(v>=XP_RANKS[i].xp)return XP_RANKS[i];return XP_RANKS[0]}
-function nextXpRank(){const idx=XP_RANKS.findIndex(r=>r.xp===getXpRank(xp).xp);return XP_RANKS[idx+1]||null}
-function getXpProgress(){const next=nextXpRank();if(!next)return 100;const cur=getXpRank(xp);return Math.min(100,Math.max(0,(xp-cur.xp)/(next.xp-cur.xp)*100))}
-function getXpProgressText(){const next=nextXpRank();return next?`${xp} / ${next.xp} XP`:`${xp} / MAX`}
+function updateGemsUi(){document.querySelectorAll(".gemCount").forEach(el=>el.innerText=gems);}
+function getXpRank(v){for(let i=XP_RANKS.length-1;i>=0;i--)if(v>=XP_RANKS[i].xp)return XP_RANKS[i];return XP_RANKS[0];}
+function nextXpRank(){const idx=XP_RANKS.findIndex(r=>r.xp===getXpRank(xp).xp);return XP_RANKS[idx+1]||null;}
+function getXpProgress(){const next=nextXpRank();if(!next)return 100;const cur=getXpRank(xp);return Math.min(100,Math.max(0,(xp-cur.xp)/(next.xp-cur.xp)*100));}
+function getXpProgressText(){const next=nextXpRank();return next?`${xp} / ${next.xp} XP`:`${xp} / MAX`;}
 function updateAllRankUi(){
   const rank=getXpRank(xp),pct=getXpProgress(),txt=getXpProgressText();
   updateGemsUi();
-  const hr=document.getElementById("homeRank"); hr.innerText=rank.name.toUpperCase(); hr.style.color=rank.color;
+  const hr=document.getElementById("homeRank");hr.innerText=rank.name.toUpperCase();hr.style.color=rank.color;
   document.getElementById("homeXpLabel").innerText="XP: "+xp;
   document.getElementById("homeRankFill").style.width=pct+"%";
   document.getElementById("homeRankFill").style.background=`linear-gradient(90deg,${rank.color},#ffff00)`;
   document.getElementById("homeRankText").innerText=txt;
-  const rd=document.getElementById("rankDisplay"); rd.innerText=rank.name.toUpperCase(); rd.style.color=rank.color;
+  const rd=document.getElementById("rankDisplay");rd.innerText=rank.name.toUpperCase();rd.style.color=rank.color;
   document.getElementById("xpDisplay").innerText="XP: "+xp;
   document.getElementById("gameRankFill").style.width=pct+"%";
   document.getElementById("gameRankFill").style.background=`linear-gradient(90deg,${rank.color},#ffff00)`;
@@ -686,12 +1000,12 @@ function updateAllRankUi(){
 }
 function addXp(amount){
   const mult=hasRunBoost("xp_surge")?3:1;
-  const oldRank=getXpRank(xp); xp+=amount*mult; const newRank=getXpRank(xp);
+  const oldRank=getXpRank(xp);xp+=amount*mult;const newRank=getXpRank(xp);
   if(newRank.name!==oldRank.name){gems++;updateGemsUi();saveProgress();showToast("+1 💎 for reaching "+newRank.name+"!");triggerRankUpAnimation();}
-  saveProgress(); updateAllRankUi();
+  saveProgress();updateAllRankUi();
 }
-function triggerRankUpAnimation(){const el=document.getElementById("rankUpAnimation");el.style.display="block";el.offsetHeight;setTimeout(()=>el.style.display="none",1100)}
-function showToast(msg,duration=2200){const t=document.getElementById("toast");t.innerText=msg;t.style.display="block";clearTimeout(t._tid);t._tid=setTimeout(()=>t.style.display="none",duration)}
+function triggerRankUpAnimation(){const el=document.getElementById("rankUpAnimation");el.style.display="block";el.offsetHeight;setTimeout(()=>el.style.display="none",1100);}
+function showToast(msg,duration=2200){const t=document.getElementById("toast");t.innerText=msg;t.style.display="block";clearTimeout(t._tid);t._tid=setTimeout(()=>t.style.display="none",duration);}
 
 // ══════════════════════════════════════════════════════════
 // SHIP BOOSTER
@@ -701,8 +1015,8 @@ document.getElementById("boosterBtn").onclick=function(){
   const avail=COSMETICS.map(c=>c.id).filter(id=>!isBoosted(id));
   if(!avail.length){showToast("All ships already BOOSTED!");return;}
   const r=avail[Math.floor(Math.random()*avail.length)];
-  boostedShips.push(r); gems--; saveProgress(); updateAllRankUi();
-  drawHomeCosmetics(); drawPowerDesc();
+  boostedShips.push(r);gems--;saveProgress();updateAllRankUi();
+  drawHomeCosmetics();drawPowerDesc();
   showToast(`BOOSTED: ${COSMETICS[r].name} — ${getBoostedDesc(r)}`,4000);
   document.getElementById("boosterBtn").disabled=(gems<1);
 };
@@ -711,13 +1025,13 @@ document.getElementById("boosterBtn").onclick=function(){
 // RUN BOOSTS
 // ══════════════════════════════════════════════════════════
 function toggleRunBoost(id){
-  const def=RUN_BOOSTS.find(b=>b.id===id); if(!def)return;
+  const def=RUN_BOOSTS.find(b=>b.id===id);if(!def)return;
   if(hasRunBoost(id)){activeRunBoosts=activeRunBoosts.filter(b=>b!==id);gems+=def.cost;saveProgress();updateAllRankUi();}
   else{if(gems<def.cost){showToast("Not enough 💎 Gems!");return;}gems-=def.cost;activeRunBoosts.push(id);saveProgress();updateAllRankUi();}
   renderBoostsTab();
 }
 function renderBoostsTab(){
-  const grid=document.getElementById("boostsGrid"); grid.innerHTML="";
+  const grid=document.getElementById("boostsGrid");grid.innerHTML="";
   RUN_BOOSTS.forEach(b=>{
     const eq=hasRunBoost(b.id),afford=gems>=b.cost;
     const d=document.createElement("div");
@@ -734,8 +1048,8 @@ function renderBoostsTab(){
 // QUESTS
 // ══════════════════════════════════════════════════════════
 function loadQuestState(){try{return JSON.parse(localStorage.getItem("sd2_qstate")||"null")}catch(e){return null}}
-function saveQuestState(s){localStorage.setItem("sd2_qstate",JSON.stringify(s))}
-function seededRng(seed){let s=seed;return()=>{s=(s*9301+49297)%233280;return s/233280}}
+function saveQuestState(s){localStorage.setItem("sd2_qstate",JSON.stringify(s));}
+function seededRng(seed){let s=seed;return()=>{s=(s*9301+49297)%233280;return s/233280;};}
 function generateBatch(batchIndex){
   const tier=QUEST_TIERS[Math.min(batchIndex,QUEST_TIERS.length-1)];
   const rng=seededRng(batchIndex*997+42);
@@ -755,18 +1069,18 @@ function checkAndAdvanceBatch(state){
   if(state.batch.every(q=>q.done)){state.batchIndex++;state.batch=generateBatch(state.batchIndex);saveQuestState(state);showToast("🎉 All quests done! New batch unlocked!",3000);renderQuestsTab();}
 }
 function checkQuestsAfterRun(){
-  const state=getOrCreateQuestState(); let anyCompleted=false;
+  const state=getOrCreateQuestState();let anyCompleted=false;
   state.batch.forEach(q=>{
     if(q.done)return;
     if(questRunScore>=q.target&&chosenCosmetic===q.shipId){
-      q.done=true; state.totalCompleted++; gems+=q.gems; saveProgress(); updateAllRankUi();
-      showToast(`✅ Quest: Score ${q.target} with ${q.shipName} +${q.gems}💎`,3000); anyCompleted=true;
+      q.done=true;state.totalCompleted++;gems+=q.gems;saveProgress();updateAllRankUi();
+      showToast(`✅ Quest: Score ${q.target} with ${q.shipName} +${q.gems}💎`,3000);anyCompleted=true;
     }
   });
   if(anyCompleted){saveQuestState(state);checkAndAdvanceBatch(state);}
 }
 function renderQuestsTab(){
-  const list=document.getElementById("questsList"); list.innerHTML="";
+  const list=document.getElementById("questsList");list.innerHTML="";
   const state=getOrCreateQuestState();
   const doneCount=state.batch.filter(q=>q.done).length;
   const tier=QUEST_TIERS[Math.min(state.batchIndex,QUEST_TIERS.length-1)];
@@ -794,20 +1108,19 @@ document.querySelectorAll(".tabBtn").forEach(btn=>{
   btn.addEventListener("click",()=>{
     document.querySelectorAll(".tabBtn").forEach(b=>b.classList.remove("active"));
     document.querySelectorAll(".tabPanel").forEach(p=>p.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById(btn.dataset.tab).classList.add("active");
+    btn.classList.add("active");document.getElementById(btn.dataset.tab).classList.add("active");
     if(btn.dataset.tab==="questsTab")renderQuestsTab();
     if(btn.dataset.tab==="boostsTab")renderBoostsTab();
   });
 });
-document.getElementById("playerNameInput").addEventListener("input",function(){playerName=this.value;saveProgress()});
+document.getElementById("playerNameInput").addEventListener("input",function(){playerName=this.value;saveProgress();});
 
 // ══════════════════════════════════════════════════════════
 // HOMESCREEN SHIP PREVIEW
 // ══════════════════════════════════════════════════════════
 function drawHomeCosmetics(){
-  const list=document.getElementById("cosmeticList"); list.innerHTML="";
-  const svgByShip = [
+  const list=document.getElementById("cosmeticList");list.innerHTML="";
+  const svgByShip=[
     `<svg viewBox="-22 -30 44 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-28 -18,28 18,28" fill="#00ffcc" opacity="0.9"/><rect x="-4" y="-4" width="8" height="16" fill="#00aaaa" rx="2"/><polygon points="-18,28 -22,38 -12,30" fill="#00ddaa"/><polygon points="18,28 22,38 12,30" fill="#00ddaa"/></svg>`,
     `<svg viewBox="-26 -30 52 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-28 -20,20 -10,36 10,36 20,20" fill="#00FF00" opacity="0.9"/><polygon points="-26,8 -20,20 0,0" fill="#00cc00"/><polygon points="26,8 20,20 0,0" fill="#00cc00"/></svg>`,
     `<svg viewBox="-20 -30 40 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="14" ry="26" fill="#0099FF" opacity="0.9"/><ellipse cx="-14" cy="4" rx="6" ry="4" fill="#0077cc"/><ellipse cx="14" cy="4" rx="6" ry="4" fill="#0077cc"/></svg>`,
@@ -815,14 +1128,64 @@ function drawHomeCosmetics(){
     `<svg viewBox="-24 -20 48 52" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="20" ry="12" fill="#FF00FF" opacity="0.85"/><ellipse cx="0" cy="0" rx="24" ry="4" fill="none" stroke="#FF00FF" stroke-width="2.5" opacity="0.7"/><ellipse cx="0" cy="-4" rx="10" ry="7" fill="#cc00cc" opacity="0.9"/></svg>`,
     `<svg viewBox="-20 -32 40 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><rect x="-16" y="-16" width="32" height="44" fill="#FFFF00" opacity="0.9" rx="3"/><polygon points="0,-32 -12,-16 12,-16" fill="#ffdd00"/><rect x="-20" y="-4" width="40" height="10" fill="#cccc00" rx="2"/></svg>`,
     `<svg viewBox="-26 -34 52 72" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="16" ry="26" fill="#00fff7" opacity="0.9"/><polygon points="0,-34 -18,8 18,8" fill="#00ddee" opacity="0.8"/><polygon points="-16,4 -26,20 -6,24 -12,10" fill="#ffffff" opacity="0.6"/><polygon points="16,4 26,20 6,24 12,10" fill="#ffffff" opacity="0.6"/></svg>`,
+    // Mythic Phantom
+    `<svg viewBox="-26 -36 52 76" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="vg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="100%" stop-color="#ff77ff" stop-opacity="0.2"/></radialGradient></defs>
+      <polygon points="0,-34 -13,24 13,24" fill="#ff77ff" opacity="0.92"/>
+      <polygon points="-13,12 -26,28 -4,30" fill="#cc44cc" opacity="0.8"/>
+      <polygon points="13,12 26,28 4,30" fill="#cc44cc" opacity="0.8"/>
+      <polygon points="-13,12 -22,24 -8,26" fill="#ffffff" opacity="0.25"/>
+      <polygon points="13,12 22,24 8,26" fill="#ffffff" opacity="0.25"/>
+      <circle cx="0" cy="-4" r="7" fill="url(#vg)" opacity="0.95"/>
+      <circle cx="0" cy="-4" r="7" fill="none" stroke="#ff77ff" stroke-width="1.5" opacity="0.8"/>
+      <ellipse cx="0" cy="-4" rx="10" ry="3.5" fill="none" stroke="#ff99ff" stroke-width="1" opacity="0.6"/>
+    </svg>`,
+    // Eternal Seraph — diamond hull, swept angel wings, halo ring, soul orb
+    `<svg viewBox="-28 -40 56 82" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="sg" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+          <stop offset="60%" stop-color="#fffacd" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#ffd700" stop-opacity="0.1"/>
+        </radialGradient>
+        <radialGradient id="hg" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fffacd" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#ffd080" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <!-- hull diamond -->
+      <polygon points="0,-37 -11,18 0,32 11,18" fill="#fffacd" opacity="0.93"/>
+      <!-- hull highlight -->
+      <polygon points="0,-37 -5,0 5,0" fill="#ffffff" opacity="0.35"/>
+      <!-- large swept wings -->
+      <polygon points="-11,4 -28,22 -10,30 -4,20" fill="#e8d880" opacity="0.82"/>
+      <polygon points="11,4 28,22 10,30 4,20" fill="#e8d880" opacity="0.82"/>
+      <!-- wing veins -->
+      <line x1="-11" y1="4" x2="-24" y2="20" stroke="#ffffff" stroke-width="0.8" opacity="0.5"/>
+      <line x1="11" y1="4" x2="24" y2="20" stroke="#ffffff" stroke-width="0.8" opacity="0.5"/>
+      <!-- upper mini wings -->
+      <polygon points="-11,0 -22,10 -6,14" fill="#fff0a0" opacity="0.65"/>
+      <polygon points="11,0 22,10 6,14" fill="#fff0a0" opacity="0.65"/>
+      <!-- halo ring (tilted ellipse) -->
+      <ellipse cx="0" cy="-16" rx="20" ry="5.5" fill="url(#hg)" opacity="0.4"/>
+      <ellipse cx="0" cy="-16" rx="20" ry="5.5" fill="none" stroke="#fffacd" stroke-width="2" opacity="0.95"/>
+      <ellipse cx="0" cy="-16" rx="23" ry="6.5" fill="none" stroke="#ffd080" stroke-width="0.8" opacity="0.4"/>
+      <!-- soul orb -->
+      <circle cx="0" cy="-10" r="8" fill="url(#sg)" opacity="1"/>
+      <circle cx="0" cy="-10" r="8" fill="none" stroke="#fffacd" stroke-width="1.2" opacity="0.85"/>
+      <!-- orb inner core -->
+      <circle cx="0" cy="-10" r="3.5" fill="#ffffff" opacity="0.95"/>
+      <!-- engine glow -->
+      <ellipse cx="0" cy="34" rx="5" ry="2.5" fill="#fffacd" opacity="0.55"/>
+    </svg>`,
   ];
   COSMETICS.forEach(sc=>{
     const unlocked=xp>=sc.unlockXp;
     const div=document.createElement("div");
     div.className="cosmeticShip"+(chosenCosmetic===sc.id?" selected":"")+(unlocked?"":" locked");
-    div.title=sc.name+(unlocked?"":" (Locked)");
+    div.title=sc.name+(unlocked?"":" (Locked — needs "+sc.unlockXp+" XP)");
     div.style.cssText="width:82px;height:100px;";
-    div.innerHTML=`<div style="padding:6px 4px 0">${svgByShip[sc.id]||""}</div><div style="font-size:9px;color:#aaa;margin-top:2px;padding:0 3px">${sc.name}</div><div style="font-size:8px;color:${sc.color};margin:2px 0;font-weight:bold">${unlocked?sc.powerName:"🔒"}</div>`;
+    div.innerHTML=`<div style="padding:6px 4px 0">${svgByShip[sc.id]||""}</div><div style="font-size:9px;color:#aaa;margin-top:2px;padding:0 3px">${sc.name}</div><div style="font-size:8px;color:${sc.color};margin:2px 0;font-weight:bold">${unlocked?sc.powerName:"🔒 "+sc.unlockXp+" XP"}</div>`;
     if(isBoosted(sc.id)){const b=document.createElement("span");b.className="booster-badge";b.innerText="BOOST";div.appendChild(b);}
     if(unlocked)div.onclick=()=>{chosenCosmetic=sc.id;saveProgress();drawHomeCosmetics();drawPowerDesc();};
     list.appendChild(div);
@@ -836,15 +1199,18 @@ function drawPowerDesc(){
 // CLEAR 3D OBJECTS
 // ══════════════════════════════════════════════════════════
 function clearGameObjects(){
-  asteroids.forEach(a=>{if(a.mesh)scene.remove(a.mesh)});
-  asteroids=[];
-  particles3D.forEach(p=>scene.remove(p.mesh));
-  particles3D=[];
-  engineExhaust.forEach(p=>scene.remove(p.mesh));
-  engineExhaust=[];
+  asteroids.forEach(a=>{if(a.mesh)scene.remove(a.mesh)});asteroids=[];
+  particles3D.forEach(p=>scene.remove(p.mesh));particles3D=[];
+  voidParticles.forEach(p=>scene.remove(p.mesh));voidParticles=[];
+  soulParticles.forEach(p=>scene.remove(p.mesh));soulParticles=[];
+  engineExhaust.forEach(p=>scene.remove(p.mesh));engineExhaust=[];
   if(laserBeam){scene.remove(laserBeam);laserBeam=null;}
   if(shipGroup){scene.remove(shipGroup);shipGroup=null;}
   if(shieldMesh){scene.remove(shieldMesh);shieldMesh=null;}
+  if(ghostDecoy){scene.remove(ghostDecoy);ghostDecoy=null;ghostDecoyLane=-1;ghostDecoyFrames=0;}
+  isTeleporting=false;teleportFrames=0;
+  voidLight.intensity=0;soulLight.intensity=0;
+  seraphHaloRing=null;seraphSoulBurstFlashFrames=0;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -857,15 +1223,11 @@ function showHomescreen(){
   document.getElementById("ui").style.display="none";
   document.getElementById("laserDisplay").style.display="none";
   document.getElementById("godlyCooldown").style.display="none";
+  document.getElementById("soulBurstDisplay").style.display="none";
   document.getElementById("controls-hint").style.display="none";
-  updateAllRankUi(); drawHomeCosmetics(); drawPowerDesc(); renderQuestsTab();
-  // Idle starfield animation
+  updateAllRankUi();drawHomeCosmetics();drawPowerDesc();renderQuestsTab();
   if(idleAnimId)cancelAnimationFrame(idleAnimId);
-  const idleAnimate=()=>{
-    updateStarfield(3);
-    renderer.render(scene,camera);
-    idleAnimId=requestAnimationFrame(idleAnimate);
-  };
+  const idleAnimate=()=>{updateStarfield(3);renderer.render(scene,camera);idleAnimId=requestAnimationFrame(idleAnimate);};
   idleAnimate();
 }
 function hideHomescreen(){
@@ -881,18 +1243,19 @@ function hideHomescreen(){
 function resetGame(){
   if(animationFrameId!==null){cancelAnimationFrame(animationFrameId);animationFrameId=null;}
   clearGameObjects();
-  baseSpeed=4; score=0; boostKey=false; difficultyTimer=0;
-  shieldActive=false; xpPassiveTimer=0; gameOver=false;
-  dodgedCount=0; legendRevives=0; frozenFrames=0; godlyCooldown=0;
-  questRunScore=0; laserShots=0; laserFrames3D=0; laserLane3D=0;
+  baseSpeed=4;score=0;boostKey=false;difficultyTimer=0;
+  shieldActive=false;xpPassiveTimer=0;gameOver=false;
+  dodgedCount=0;legendRevives=0;frozenFrames=0;godlyCooldown=0;
+  questRunScore=0;laserShots=0;laserFrames3D=0;laserLane3D=0;
+  seraphWingGlow=0;seraphSoulBurstFlashFrames=0;
   loadProgress();
   const boostedCadet=(chosenCosmetic===0&&isBoosted(0));
-  startShieldActive=boostedCadet; startShieldFrames=boostedCadet?600:0;
+  startShieldActive=boostedCadet;startShieldFrames=boostedCadet?600:0;
   if(hasRunBoost("iron_shell"))shieldActive=true;
   ship.moveSpeed=hasRunBoost("hyperdrive")?.22:.11;
   laserShots=hasRunBoost("laser_shot")?3:0;
-  activeRunBoosts=[]; saveProgress();
-  ship.lane=1; ship.x=LANES_3D[1]; ship.targetX=LANES_3D[1]; ship.tilt=0;
+  activeRunBoosts=[];saveProgress();
+  ship.lane=1;ship.x=LANES_3D[1];ship.targetX=LANES_3D[1];ship.tilt=0;
   highScore=parseInt(localStorage.getItem("sd2_hs")||"0")||0;
   document.getElementById("score").innerText=0;
   document.getElementById("highScore").innerText=highScore;
@@ -900,19 +1263,20 @@ function resetGame(){
   document.getElementById("reviveFlash").style.display="none";
   document.getElementById("godlyCooldown").style.display="none";
   const ld=document.getElementById("laserDisplay");
-  if(laserShots>0){ld.style.display="block";document.getElementById("laserLeft").innerText=laserShots;}
-  else{ld.style.display="none";}
-  // Create ship mesh
-  shipGroup = createShipMesh(chosenCosmetic);
-  shipGroup.position.set(LANES_3D[1], 0, 0);
-  scene.add(shipGroup);
-  // Create shield mesh
-  shieldMesh = createShieldMesh();
-  shieldMesh.position.set(LANES_3D[1], 0, 0);
-  scene.add(shieldMesh);
-  // Update engine light color
+  if(laserShots>0){ld.style.display="block";document.getElementById("laserLeft").innerText=laserShots;}else{ld.style.display="none";}
+  // Soul Burst counter display
+  const sd=document.getElementById("soulBurstDisplay");
+  if(isSeraph()){
+    sd.style.display="block";
+    document.getElementById("soulBurstCount").innerText=getSoulBurstEvery();
+  } else {sd.style.display="none";}
+  shipGroup=createShipMesh(chosenCosmetic);
+  shipGroup.position.set(LANES_3D[1],0,0);scene.add(shipGroup);
+  shieldMesh=createShieldMesh();shieldMesh.position.set(LANES_3D[1],0,0);scene.add(shieldMesh);
   engineLight.color.set(COSMETICS[chosenCosmetic].color);
-  updateAllRankUi(); renderBoostsTab();
+  if(isPhantomatic())voidLight.color.set(0xff44ff);
+  if(isSeraph())soulLight.color.set(0xfffacd);
+  updateAllRankUi();renderBoostsTab();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -920,12 +1284,10 @@ function resetGame(){
 // ══════════════════════════════════════════════════════════
 function fireLaser(){
   if(laserShots<=0||gameOver)return;
-  laserShots--;
-  laserLane3D=ship.lane;
-  const lx=LANES_3D[ship.lane];
-  showLaserBeam(lx);
+  laserShots--;laserLane3D=ship.lane;
+  showLaserBeam(LANES_3D[ship.lane]);
   for(let i=asteroids.length-1;i>=0;i--){
-    if(asteroids[i].x===lx){scene.remove(asteroids[i].mesh);asteroids.splice(i,1);}
+    if(asteroids[i].x===LANES_3D[ship.lane]){scene.remove(asteroids[i].mesh);asteroids.splice(i,1);}
   }
   document.getElementById("laserLeft").innerText=laserShots;
   if(laserShots<=0)document.getElementById("laserDisplay").style.display="none";
@@ -942,15 +1304,12 @@ function spawnAsteroid(){
   for(let i=0;i<shuffled.length&&spawned<count;i++){
     const lx=shuffled[i];
     if(!asteroids.find(a=>a.x===lx&&a.z<SPAWN_Z+30)){
-      const mesh=createAsteroidMesh();
-      mesh.position.set(lx,0,SPAWN_Z);
-      scene.add(mesh);
+      const mesh=createAsteroidMesh();mesh.position.set(lx,0,SPAWN_Z);scene.add(mesh);
       asteroids.push({x:lx,z:SPAWN_Z,mesh,rotX:(Math.random()-.5)*0.04,rotY:(Math.random()-.5)*0.04});
       spawned++;
     }
   }
 }
-
 function preventImpossibleRows(){
   const tops=LANES_3D.map(lx=>asteroids.filter(a=>a.x===lx&&a.z<SPAWN_Z+40));
   if(tops.every(arr=>arr.length>0)){
@@ -964,44 +1323,53 @@ function updateAsteroids3D(speed3D){
     const a=asteroids[index];
     const aspd=frozenFrames>0?0:speed3D*getAsteroidSpeedMult();
     a.z+=aspd;
-    if(a.mesh){
-      a.mesh.position.z=a.z;
-      a.mesh.rotation.x+=a.rotX; a.mesh.rotation.y+=a.rotY;
-    }
-    // Passed the player — dodge scored
+    if(a.mesh){a.mesh.position.z=a.z;a.mesh.rotation.x+=a.rotX;a.mesh.rotation.y+=a.rotY;}
     if(a.z>PASS_Z){
-      scene.remove(a.mesh); asteroids.splice(index,1);
+      scene.remove(a.mesh);asteroids.splice(index,1);
       if(!gameOver){
-        score+=10; questRunScore=score;
+        score+=10;questRunScore=score;
         document.getElementById("score").innerText=score;
-        addXp(XP_PER_ASTEROID); dodgedCount++;
+        addXp(XP_PER_ASTEROID);dodgedCount++;
         const every=getShieldEveryDodged();
         if(every&&dodgedCount%every===0)shieldActive=true;
         while(score>=xpMilestoneNext){addXp(Math.floor(XP_PER_MILESTONE*getMilestoneXpBonus()));xpMilestoneNext+=XP_MILESTONE_STEP;}
         saveProgress();
         if(score>highScore){highScore=score;localStorage.setItem("sd2_hs",highScore);document.getElementById("highScore").innerText=highScore;}
+
+        // ── Soul Burst check (Eternal Seraph) ─────────────────
+        if(isSeraph()&&dodgedCount>0&&dodgedCount%getSoulBurstEvery()===0){
+          triggerSoulBurst();
+        }
+        // Update Soul Burst countdown display
+        if(isSeraph()){
+          const remaining=getSoulBurstEvery()-(dodgedCount%getSoulBurstEvery());
+          document.getElementById("soulBurstCount").innerText=remaining===getSoulBurstEvery()?getSoulBurstEvery():remaining;
+        }
       }
       continue;
     }
-    // Collision check
+    // ── Collision check ───────────────────────────────────
     if(Math.abs(a.x-ship.x)<2.0&&a.z>-2&&a.z<2.5){
-      // Invulnerable?
+      if(isPhantomatic()&&isTeleporting)continue;
+      if(isPhantomatic()&&isBoosted(7)&&ghostDecoy&&ghostDecoyLane===ship.lane){
+        spawnVoidBurst(a.x,0,a.z);
+        scene.remove(ghostDecoy);ghostDecoy=null;ghostDecoyLane=-1;ghostDecoyFrames=0;
+        scene.remove(a.mesh);asteroids.splice(index,1);
+        flashScreen("rgba(200,0,255,.3)");
+        showToast("👻 Ghost Decoy absorbed the hit!",1400);
+        continue;
+      }
       if(chosenCosmetic===0&&isBoosted(0)&&startShieldActive)continue;
       if(shieldActive){
-        shieldActive=false;
-        flashScreen("rgba(255,150,0,.4)");
-        spawnParticles3D(ship.x,0,0,10);
-        scene.remove(a.mesh); asteroids.splice(index,1);
-        continue;
+        shieldActive=false;flashScreen("rgba(255,150,0,.4)");
+        spawnParticles3D(ship.x,0,0,10);scene.remove(a.mesh);asteroids.splice(index,1);continue;
       }
       if(getPowerActive("Revive")&&legendRevives<getLegendRevives()){
         legendRevives++;
         flashScreen("rgba(0,255,200,.3)");
         document.getElementById("reviveFlash").style.display="block";
         setTimeout(()=>document.getElementById("reviveFlash").style.display="none",300);
-        spawnParticles3D(a.x,0,a.z,15);
-        scene.remove(a.mesh); asteroids.splice(index,1);
-        continue;
+        spawnParticles3D(a.x,0,a.z,15);scene.remove(a.mesh);asteroids.splice(index,1);continue;
       }
       spawnParticles3D(ship.x,0,0,25);
       gameOver=true;
@@ -1017,15 +1385,42 @@ function updateAsteroids3D(speed3D){
 // SHIP UPDATE
 // ══════════════════════════════════════════════════════════
 function updateShip3D(){
-  ship.x+=(ship.targetX-ship.x)*ship.moveSpeed;
-  ship.tilt=(ship.targetX-ship.x)*.04;
+  if(!isPhantomatic()){
+    ship.x+=(ship.targetX-ship.x)*ship.moveSpeed;
+    ship.tilt=(ship.targetX-ship.x)*.04;
+  } else {
+    ship.tilt=0;
+  }
+
   if(shipGroup){
     shipGroup.position.x=ship.x;
     shipGroup.rotation.z=-ship.tilt;
-    // Hover bob
     shipGroup.position.y=Math.sin(Date.now()*0.002)*0.12;
+
+    // Phantom void orb ring spin
+    if(isPhantomatic()){
+      shipGroup.children.forEach(child=>{
+        if(child.geometry&&child.geometry.type==="TorusGeometry"){child.rotation.z+=0.04;}
+      });
+    }
+
+    // Eternal Seraph — halo spin + soul glow pulse
+    if(isSeraph()&&seraphHaloRing){
+      seraphHaloRing.rotation.z+=0.018;
+      // Pulse halo brightness during soul burst flash
+      const burstGlow=seraphSoulBurstFlashFrames>0?(seraphSoulBurstFlashFrames/45):0;
+      const baseGlow=0.7+Math.sin(Date.now()*0.003)*0.15;
+      seraphHaloRing.material.opacity=Math.min(1.0,baseGlow+burstGlow*0.9);
+      // Gentle wing pulsing light
+      seraphWingGlow=0.5+Math.sin(Date.now()*0.0025)*0.3+burstGlow*0.5;
+      if(soulLight.intensity<1){
+        soulLight.intensity=seraphWingGlow*1.8;
+        soulLight.position.set(ship.x,1,-0.5);
+      }
+    }
   }
-  // Shield visibility
+
+  // Shield
   const shieldOn=(chosenCosmetic===0&&isBoosted(0)&&startShieldActive)||(shieldActive);
   if(shieldMesh){
     shieldMesh.position.x=ship.x;
@@ -1033,14 +1428,16 @@ function updateShip3D(){
     shieldMesh.visible=shieldOn;
     if(shieldOn){shieldMesh.rotation.y+=0.02;shieldMesh.rotation.x+=0.01;}
   }
-  // Engine light follows ship
-  engineLight.position.set(ship.x, shipGroup?shipGroup.position.y:0, 2);
+
+  engineLight.position.set(ship.x,shipGroup?shipGroup.position.y:0,2);
   const pulse=1.5+Math.sin(Date.now()*0.01)*0.7+(boostKey?2:0);
   engineLight.intensity=pulse;
   shipPointLight.position.x=ship.x;
-  // Engine particles
-  if(Math.random()<0.35){
-    spawnEngineParticle(ship.x, COSMETICS[chosenCosmetic].color);
+
+  if(voidLight.intensity>0)voidLight.intensity=Math.max(0,voidLight.intensity*0.85);
+
+  if(Math.random()<0.35&&!isTeleporting){
+    spawnEngineParticle(ship.x,COSMETICS[chosenCosmetic].color);
   }
 }
 
@@ -1064,10 +1461,8 @@ function updateGodlyCooldown(){
 // CAMERA
 // ══════════════════════════════════════════════════════════
 function updateCamera(){
-  // Smoothly follow ship x
   camera.position.x+=(ship.x*0.18-camera.position.x)*0.04;
-  // Lean camera slightly toward movement
-  camera.lookAt(new THREE.Vector3(ship.x*0.12, -0.5, -20));
+  camera.lookAt(new THREE.Vector3(ship.x*0.12,-0.5,-20));
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1077,7 +1472,6 @@ function update(){
   const spd2d=frozenFrames>0?0:baseSpeed+(baseSpeed*.5*getBoostMultiplier())+(boostKey?4*getBoostMultiplier():0);
   const spd3D=spd2d*SPEED_SCALE;
   updateStarfield(spd2d);
-
   if(!gameOver){
     difficultyTimer++;
     if(frozenFrames===0&&difficultyTimer%300===0)baseSpeed+=.5;
@@ -1087,15 +1481,16 @@ function update(){
     if(frozenFrames===0&&Math.random()<.03)spawnAsteroid();
     if(godlyCooldown>0)godlyCooldown--;
   }
-
   updateLaser3D();
   updateEngineExhaust();
   updateParticles3D();
+  updateVoidParticles();
+  updateSoulParticles();
+  updateGhostDecoy();
   updatePassiveXp();
   updateGodlyCooldown();
   updateCamera();
-
-  renderer.render(scene, camera);
+  renderer.render(scene,camera);
   animationFrameId=requestAnimationFrame(update);
 }
 
@@ -1103,32 +1498,34 @@ function update(){
 // START
 // ══════════════════════════════════════════════════════════
 document.getElementById("startBtn").onclick=()=>{
-  hideHomescreen();
-  resetGame();
-  animationFrameId=requestAnimationFrame(update);
+  hideHomescreen();resetGame();animationFrameId=requestAnimationFrame(update);
 };
 
-loadProgress();
-showHomescreen();
+loadProgress();showHomescreen();
 
 // ══════════════════════════════════════════════════════════
 // INPUT
 // ══════════════════════════════════════════════════════════
 document.addEventListener("keydown",e=>{
   if(document.getElementById("ui").style.display==="none")return;
-  if(e.key==="ArrowLeft"||e.key==="a"){if(ship.lane>0){ship.lane--;ship.targetX=LANES_3D[ship.lane];}}
-  if(e.key==="ArrowRight"||e.key==="d"){if(ship.lane<2){ship.lane++;ship.targetX=LANES_3D[ship.lane];}}
+  if(e.key==="ArrowLeft"||e.key==="a"){
+    if(isPhantomatic()){if(ship.lane>0)doPhantomTeleport(ship.lane-1);}
+    else{if(ship.lane>0){ship.lane--;ship.targetX=LANES_3D[ship.lane];}}
+  }
+  if(e.key==="ArrowRight"||e.key==="d"){
+    if(isPhantomatic()){if(ship.lane<2)doPhantomTeleport(ship.lane+1);}
+    else{if(ship.lane<2){ship.lane++;ship.targetX=LANES_3D[ship.lane];}}
+  }
   if(e.key===" "){e.preventDefault();boostKey=true;}
   if(e.key==="r"&&gameOver){showHomescreen();}
   if(e.key.toLowerCase()==="l"&&laserShots>0&&!gameOver)fireLaser();
   if(getPowerActive("Time Annihilate")&&e.key.toLowerCase()==="f"&&godlyCooldown===0&&!gameOver){
-    asteroids.forEach(a=>scene.remove(a.mesh)); asteroids=[];
-    godlyCooldown=getGodlyCooldownFrames(); frozenFrames=180;
-    flashScreen("rgba(0,255,255,.25)");
-    showToast("⚡ TIME ANNIHILATE!",1500);
+    asteroids.forEach(a=>scene.remove(a.mesh));asteroids=[];
+    godlyCooldown=getGodlyCooldownFrames();frozenFrames=180;
+    flashScreen("rgba(0,255,255,.25)");showToast("⚡ TIME ANNIHILATE!",1500);
   }
 });
-document.addEventListener("keyup",e=>{if(e.key===" ")boostKey=false});
+document.addEventListener("keyup",e=>{if(e.key===" ")boostKey=false;});
 </script>
 </body>
 </html>
