@@ -98,6 +98,10 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 #toast{display:none;position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(0,0,0,.88);border:1px solid #00ffcc;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:bold;color:#fff770;text-shadow:0 0 8px #0ff;z-index:9999;white-space:nowrap}
 #controls-hint{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:#334;z-index:999;pointer-events:none}
 
+/* NEW: Singularity & Chronos HUD */
+#singularityDisplay{position:fixed;left:50%;top:110px;transform:translateX(-50%);font-size:13px;font-weight:bold;color:#ff6666;background:rgba(0,0,0,.65);border-radius:6px;padding:2px 10px;display:none;z-index:999;box-shadow:0 0 10px #ff666688}
+#chronosDisplay{position:fixed;left:50%;top:110px;transform:translateX(-50%);font-size:13px;font-weight:bold;color:#c8c8ff;background:rgba(0,0,0,.65);border-radius:6px;padding:2px 10px;display:none;z-index:999;box-shadow:0 0 10px #aaaaff88}
+
 /* Soul Burst flash */
 @keyframes soulBurstFlash{
   0%{opacity:0.9;transform:scale(1)}
@@ -127,6 +131,9 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 <div id="godlyCooldown"></div>
 <div id="soulBurstDisplay">✨ Soul Burst: <span id="soulBurstCount">20</span> dodges</div>
 <div id="laserDisplay">🔥 Laser: <span id="laserLeft">3</span></div>
+<!-- NEW HUD elements -->
+<div id="singularityDisplay">🌀 Singularity: <span id="singularityTimer">15</span>s</div>
+<div id="chronosDisplay">🌀 Chronos: <span id="chronosLabel">Solid 8s</span></div>
 <div id="controls-hint">← → / A D = Move &nbsp;|&nbsp; SPACE = Boost &nbsp;|&nbsp; L = Laser &nbsp;|&nbsp; F = Annihilate &nbsp;|&nbsp; R = Restart</div>
 
 <!-- HOMESCREEN -->
@@ -199,6 +206,9 @@ const COSMETICS=[
   {id:6,name:"Godly Dragon",color:"#00fff7",unlockXp:4000,powerName:"Time Annihilate",powerDesc:"Press F every 30s: destroy all asteroids + freeze 3s."},
   {id:7,name:"Mythic Phantom",color:"#ff77ff",unlockXp:6000,powerName:"Void Teleport",powerDesc:"Instantly teleport between lanes — no sliding. Teleport through asteroids harmlessly!"},
   {id:8,name:"Eternal Seraph",color:"#fffacd",unlockXp:9000,powerName:"Soul Burst",powerDesc:"Every 20 asteroids dodged, your soul erupts — all asteroids annihilated + burst of XP."},
+  // ── NEW SHIPS ──
+  {id:9,name:"Cosmic Harbinger",color:"#ff6666",unlockXp:13000,powerName:"Singularity",powerDesc:"Gems are drawn toward you passively. Every 15s a gravity pulse pulls ALL gems on-screen to your lane instantly."},
+  {id:10,name:"Transcendent Aeon",color:"#c8c8ff",unlockXp:20000,powerName:"Chronos Shift",powerDesc:"Every 8s you phase into another dimension for 3s — asteroids pass straight through you harmlessly. A ghost afterimage trails you at all times."},
 ];
 const RUN_BOOSTS=[
   {id:"hyperdrive",name:"⚡ Hyperdrive",desc:"Move 2× faster between lanes",cost:1},
@@ -253,13 +263,19 @@ scene.add(shipPointLight);
 const engineLight = new THREE.PointLight(0x00ffcc, 3, 6);
 scene.add(engineLight);
 
-// Void teleport flash point light (purple, only active during teleport)
+// Void teleport flash point light
 const voidLight = new THREE.PointLight(0xff44ff, 0, 14);
 scene.add(voidLight);
 
-// Soul Burst halo light (warm gold, only active during soul burst)
+// Soul Burst halo light
 const soulLight = new THREE.PointLight(0xfffacd, 0, 20);
 scene.add(soulLight);
+
+// ── NEW: Singularity red grav light & Chronos blue phase light ──
+const singLight = new THREE.PointLight(0xff3333, 0, 16);
+scene.add(singLight);
+const chronosLight = new THREE.PointLight(0x8888ff, 0, 16);
+scene.add(chronosLight);
 
 // ══════════════════════════════════════════════════════════
 // GAME WORLD CONSTANTS
@@ -281,26 +297,30 @@ let particles3D = [];
 let asteroids = [];
 let stars3D = null;
 
-// Seraph halo ring reference (for spinning)
 let seraphHaloRing = null;
-let seraphWingGlow = 0; // 0–1, pulses during soul burst
+let seraphWingGlow = 0;
 let seraphSoulBurstFlashFrames = 0;
 
-// Phantom ghost decoy (boosted Mythic Phantom only)
 let ghostDecoy = null;
 let ghostDecoyLane = -1;
 let ghostDecoyFrames = 0;
 
-// Teleport state
 let isTeleporting = false;
 let teleportFrames = 0;
-const TELEPORT_DURATION = 8; // frames ship is invisible mid-teleport
+const TELEPORT_DURATION = 8;
 
-// Void burst afterimage particles
 let voidParticles = [];
-
-// Soul burst particles (Eternal Seraph)
 let soulParticles = [];
+
+// ── NEW: Singularity gem list & Chronos ghost trail ──
+let gemObjects = [];       // {mesh, lane, z} for Singularity attraction
+let chronosGhostMesh = null; // trailing ghost for Aeon
+let chronosPhased = false;
+let chronosTimer = 0;      // frames into current phase/solid cycle
+const CHRONOS_SOLID = 480; // 8s at 60fps
+const CHRONOS_PHASED = 180;// 3s at 60fps
+let singularityTimer = 0;  // frames since last pulse
+const SINGULARITY_INTERVAL = 900; // 15s
 
 // ══════════════════════════════════════════════════════════
 // STARFIELD
@@ -381,7 +401,8 @@ function createShipMesh(id){
   const group=new THREE.Group();
   const col=COSMETICS[id].color;
   const mat=makeMat(col);
-  seraphHaloRing = null; // reset
+  seraphHaloRing = null;
+  chronosGhostMesh = null;
 
   if(id===0){
     const body=new THREE.Mesh(new THREE.ConeGeometry(0.75,3.5,5),mat);
@@ -452,12 +473,9 @@ function createShipMesh(id){
     const wmGeo=new THREE.ShapeGeometry(wm);
     [-1,1].forEach(s=>{const wmark=new THREE.Mesh(wmGeo,wMark.clone());wmark.rotation.x=Math.PI/2;wmark.scale.x=s;wmark.position.set(s*0.66,-0.18,0.5);group.add(wmark);});
   } else if(id===7){
-    // ── Mythic Phantom ──────────────────────────────────────
     const hullGeo = new THREE.ConeGeometry(1.1, 4.5, 3);
     const hull = new THREE.Mesh(hullGeo, mat);
-    hull.rotation.x = -Math.PI/2;
-    hull.position.z = -0.2;
-    group.add(hull);
+    hull.rotation.x = -Math.PI/2; hull.position.z = -0.2; group.add(hull);
     const vwShape = new THREE.Shape();
     vwShape.moveTo(0, 0);vwShape.lineTo(3.8, 0.2);vwShape.lineTo(3.0, 1.6);vwShape.lineTo(1.2, 2.2);vwShape.lineTo(0, 1.4);
     const vwGeo = new THREE.ShapeGeometry(vwShape);
@@ -479,136 +497,131 @@ function createShipMesh(id){
     pg.rotation.y=Math.PI;pg.position.set(0,0,1.85);group.add(pg);
 
   } else if(id===8){
-    // ══════════════════════════════════════════════════════
-    // ── Eternal Seraph ────────────────────────────────────
-    // Sleek diamond hull — celestial, angelic, luminous
-    // ══════════════════════════════════════════════════════
     const warmGold = new THREE.Color(col);
-
-    // Main hull — tall diamond/chevron body
     const hullGeo = new THREE.OctahedronGeometry(1.5, 0);
     const hull = new THREE.Mesh(hullGeo, makeMat(col, 0.55, 0.35, 0.15));
-    hull.scale.set(0.65, 0.42, 2.1);
-    hull.position.z = -0.1;
-    group.add(hull);
-
-    // Forward prow — elongated spike
+    hull.scale.set(0.65, 0.42, 2.1); hull.position.z = -0.1; group.add(hull);
     const prowGeo = new THREE.ConeGeometry(0.32, 2.2, 5);
     const prow = new THREE.Mesh(prowGeo, makeMat(col, 0.9, 0.2, 0.08));
-    prow.rotation.x = -Math.PI / 2;
-    prow.position.set(0, 0, -2.4);
-    group.add(prow);
-
-    // Swept seraph wings — large, feather-like panels
+    prow.rotation.x = -Math.PI / 2; prow.position.set(0, 0, -2.4); group.add(prow);
     const swShape = new THREE.Shape();
-    swShape.moveTo(0,   0  );
-    swShape.lineTo(4.2, -0.3);
-    swShape.lineTo(3.4,  2.0);
-    swShape.lineTo(2.0,  3.2);
-    swShape.lineTo(0.6,  3.0);
-    swShape.lineTo(0,    1.6);
+    swShape.moveTo(0,0);swShape.lineTo(4.2,-0.3);swShape.lineTo(3.4,2.0);swShape.lineTo(2.0,3.2);swShape.lineTo(0.6,3.0);swShape.lineTo(0,1.6);
     const swGeo = new THREE.ShapeGeometry(swShape);
-    const swMat = new THREE.MeshStandardMaterial({
-      color: warmGold,
-      emissive: warmGold.clone().multiplyScalar(0.35),
-      side: THREE.DoubleSide, metalness: 0.25, roughness: 0.2,
-      transparent: true, opacity: 0.86
-    });
-    [-1, 1].forEach(s => {
-      const sw = new THREE.Mesh(swGeo, swMat.clone());
-      sw.rotation.x = Math.PI / 2;
-      sw.scale.x = s;
-      sw.position.set(s * 0.6, -0.08, 0.2);
-      group.add(sw);
-    });
+    const swMat = new THREE.MeshStandardMaterial({color:warmGold,emissive:warmGold.clone().multiplyScalar(0.35),side:THREE.DoubleSide,metalness:0.25,roughness:0.2,transparent:true,opacity:0.86});
+    [-1,1].forEach(s=>{const sw=new THREE.Mesh(swGeo,swMat.clone());sw.rotation.x=Math.PI/2;sw.scale.x=s;sw.position.set(s*0.6,-0.08,0.2);group.add(sw);});
+    const veinMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.5,side:THREE.DoubleSide});
+    const vShape=new THREE.Shape();vShape.moveTo(0.2,0.4);vShape.lineTo(3.6,0.1);vShape.lineTo(2.8,1.5);vShape.lineTo(0.2,1.4);
+    const vGeo=new THREE.ShapeGeometry(vShape);
+    [-1,1].forEach(s=>{const vein=new THREE.Mesh(vGeo,veinMat.clone());vein.rotation.x=Math.PI/2;vein.scale.x=s;vein.position.set(s*0.61,-0.07,0.21);group.add(vein);});
+    const sf2Shape=new THREE.Shape();sf2Shape.moveTo(0,0);sf2Shape.lineTo(2.8,0.1);sf2Shape.lineTo(2.0,1.6);sf2Shape.lineTo(0.4,1.8);sf2Shape.lineTo(0,0.8);
+    const sf2Geo=new THREE.ShapeGeometry(sf2Shape);
+    const sf2Mat=new THREE.MeshStandardMaterial({color:warmGold,emissive:warmGold.clone().multiplyScalar(0.5),side:THREE.DoubleSide,metalness:0.15,roughness:0.15,transparent:true,opacity:0.72});
+    [-1,1].forEach(s=>{const sf2=new THREE.Mesh(sf2Geo,sf2Mat.clone());sf2.rotation.x=Math.PI/2;sf2.rotation.z=-s*0.18;sf2.scale.x=s;sf2.position.set(s*0.58,0.5,-0.3);group.add(sf2);});
+    const haloGeo=new THREE.TorusGeometry(2.1,0.1,10,36);
+    const haloMat=new THREE.MeshBasicMaterial({color:0xfffacd,transparent:true,opacity:0.88});
+    const halo=new THREE.Mesh(haloGeo,haloMat);
+    halo.rotation.x=Math.PI*0.1;halo.position.set(0,0.7,-0.5);group.add(halo);
+    seraphHaloRing=halo;
+    const haloGlowGeo=new THREE.TorusGeometry(2.5,0.05,6,32);
+    const haloGlowMat=new THREE.MeshBasicMaterial({color:0xffd080,transparent:true,opacity:0.35});
+    const haloGlow=new THREE.Mesh(haloGlowGeo,haloGlowMat);
+    haloGlow.rotation.x=Math.PI*0.1;haloGlow.position.set(0,0.7,-0.5);group.add(haloGlow);
+    const sOrbGeo=new THREE.SphereGeometry(0.45,14,14);
+    const sOrbMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0xffffff),emissive:warmGold.clone(),emissiveIntensity:2.2,metalness:0.0,roughness:0.0,transparent:true,opacity:1.0});
+    const sOrb=new THREE.Mesh(sOrbGeo,sOrbMat);sOrb.position.set(0,0.28,-0.7);group.add(sOrb);
+    const coreGeo=new THREE.SphereGeometry(0.22,8,8);
+    const coreMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.95});
+    const core=new THREE.Mesh(coreGeo,coreMat);core.position.set(0,0.28,-0.7);group.add(core);
+    const tfGeo=new THREE.BoxGeometry(0.08,1.1,0.9);
+    [-0.8,0.8].forEach(x=>{const tf=new THREE.Mesh(tfGeo,makeMat(col,0.4,0.4,0.2));tf.position.set(x,0.25,1.55);tf.rotation.z=x>0?-0.15:0.15;group.add(tf);});
 
-    // Wing light veins — thin bright lines across each wing
-    const veinMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide
-    });
-    const vShape = new THREE.Shape();
-    vShape.moveTo(0.2, 0.4); vShape.lineTo(3.6, 0.1); vShape.lineTo(2.8, 1.5); vShape.lineTo(0.2, 1.4);
-    const vGeo = new THREE.ShapeGeometry(vShape);
-    [-1, 1].forEach(s => {
-      const vein = new THREE.Mesh(vGeo, veinMat.clone());
-      vein.rotation.x = Math.PI / 2;
-      vein.scale.x = s;
-      vein.position.set(s * 0.61, -0.07, 0.21);
-      group.add(vein);
-    });
+  } else if(id===9){
+    // ── Cosmic Harbinger: angular delta hull, accretion-disk wings, event-horizon ring, singularity core ──
+    const crimson = new THREE.Color(col);
+    // Delta hull body
+    const hullGeo = new THREE.OctahedronGeometry(1.7,0);
+    const hull = new THREE.Mesh(hullGeo, makeMat(col,0.5,0.7,0.15));
+    hull.scale.set(0.58,0.33,2.3); hull.position.z=-0.2; group.add(hull);
+    // Forward spike
+    const prowGeo = new THREE.ConeGeometry(0.28,2.8,4);
+    const prow = new THREE.Mesh(prowGeo, makeMat(col,1.0,0.3,0.05));
+    prow.rotation.x=-Math.PI/2; prow.position.set(0,0,-2.8); group.add(prow);
+    // Accretion-disk wings
+    const adShape=new THREE.Shape();
+    adShape.moveTo(0,0);adShape.lineTo(4.5,-0.6);adShape.lineTo(4.0,0.5);adShape.lineTo(2.8,1.4);adShape.lineTo(1.0,1.8);adShape.lineTo(0,0.9);
+    const adGeo=new THREE.ShapeGeometry(adShape);
+    const adMat=new THREE.MeshStandardMaterial({color:crimson,emissive:crimson.clone().multiplyScalar(0.6),side:THREE.DoubleSide,metalness:0.5,roughness:0.15,transparent:true,opacity:0.82});
+    [-1,1].forEach(s=>{const aw=new THREE.Mesh(adGeo,adMat.clone());aw.rotation.x=Math.PI/2;aw.scale.x=s;aw.position.set(s*0.55,-0.05,0.1);group.add(aw);});
+    // Event horizon ring
+    const ehGeo=new THREE.TorusGeometry(1.55,0.13,9,32);
+    const ehMat=new THREE.MeshBasicMaterial({color:0xff4444,transparent:true,opacity:0.9});
+    const ehRing=new THREE.Mesh(ehGeo,ehMat);
+    ehRing.rotation.x=Math.PI*0.05; ehRing.position.set(0,0.1,-0.2); group.add(ehRing);
+    // Outer glow ring
+    const ehGlowGeo=new THREE.TorusGeometry(2.2,0.05,6,28);
+    const ehGlowMat=new THREE.MeshBasicMaterial({color:0xdd2222,transparent:true,opacity:0.32});
+    const ehGlow=new THREE.Mesh(ehGlowGeo,ehGlowMat);
+    ehGlow.rotation.x=Math.PI*0.05; ehGlow.position.set(0,0.1,-0.2); group.add(ehGlow);
+    // Singularity core
+    const coreGeo=new THREE.SphereGeometry(0.55,14,14);
+    const coreMat=new THREE.MeshStandardMaterial({color:0x110000,emissive:new THREE.Color(0xff1111),emissiveIntensity:1.8,metalness:0,roughness:0,transparent:true,opacity:1.0});
+    const core=new THREE.Mesh(coreGeo,coreMat); core.position.set(0,0.18,-0.5); group.add(core);
+    const hotGeo=new THREE.SphereGeometry(0.18,8,8);
+    const hotMat=new THREE.MeshBasicMaterial({color:0xffaaaa,transparent:true,opacity:0.9});
+    const hot=new THREE.Mesh(hotGeo,hotMat); hot.position.set(0,0.18,-0.5); group.add(hot);
+    // Tail struts
+    const strutGeo=new THREE.BoxGeometry(0.09,0.9,0.85);
+    [-0.75,0.75].forEach(x=>{const st=new THREE.Mesh(strutGeo,makeMat(col,0.5,0.7,0.2));st.position.set(x,0.1,1.6);group.add(st);});
 
-    // Secondary upper feather wings — smaller, higher
-    const sf2Shape = new THREE.Shape();
-    sf2Shape.moveTo(0,   0  );
-    sf2Shape.lineTo(2.8, 0.1);
-    sf2Shape.lineTo(2.0, 1.6);
-    sf2Shape.lineTo(0.4, 1.8);
-    sf2Shape.lineTo(0,   0.8);
-    const sf2Geo = new THREE.ShapeGeometry(sf2Shape);
-    const sf2Mat = new THREE.MeshStandardMaterial({
-      color: warmGold,
-      emissive: warmGold.clone().multiplyScalar(0.5),
-      side: THREE.DoubleSide, metalness: 0.15, roughness: 0.15,
-      transparent: true, opacity: 0.72
-    });
-    [-1, 1].forEach(s => {
-      const sf2 = new THREE.Mesh(sf2Geo, sf2Mat.clone());
-      sf2.rotation.x = Math.PI / 2;
-      sf2.rotation.z = -s * 0.18; // slight upward cant
-      sf2.scale.x = s;
-      sf2.position.set(s * 0.58, 0.5, -0.3);
-      group.add(sf2);
-    });
-
-    // Halo ring — the Eternal's iconic signature
-    const haloGeo = new THREE.TorusGeometry(2.1, 0.1, 10, 36);
-    const haloMat = new THREE.MeshBasicMaterial({
-      color: 0xfffacd, transparent: true, opacity: 0.88
-    });
-    const halo = new THREE.Mesh(haloGeo, haloMat);
-    halo.rotation.x = Math.PI * 0.1; // slight forward tilt
-    halo.position.set(0, 0.7, -0.5);
-    group.add(halo);
-    seraphHaloRing = halo; // track for spinning
-
-    // Halo outer glow ring (slightly larger, dimmer)
-    const haloGlowGeo = new THREE.TorusGeometry(2.5, 0.05, 6, 32);
-    const haloGlowMat = new THREE.MeshBasicMaterial({
-      color: 0xffd080, transparent: true, opacity: 0.35
-    });
-    const haloGlow = new THREE.Mesh(haloGlowGeo, haloGlowMat);
-    haloGlow.rotation.x = Math.PI * 0.1;
-    haloGlow.position.set(0, 0.7, -0.5);
-    group.add(haloGlow);
-
-    // Soul orb — luminous heart at cockpit
-    const sOrbGeo = new THREE.SphereGeometry(0.45, 14, 14);
-    const sOrbMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0xffffff),
-      emissive: warmGold.clone(),
-      emissiveIntensity: 2.2,
-      metalness: 0.0, roughness: 0.0,
-      transparent: true, opacity: 1.0
-    });
-    const sOrb = new THREE.Mesh(sOrbGeo, sOrbMat);
-    sOrb.position.set(0, 0.28, -0.7);
-    group.add(sOrb);
-
-    // Orb inner core (bright white)
-    const coreGeo = new THREE.SphereGeometry(0.22, 8, 8);
-    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
-    const core = new THREE.Mesh(coreGeo, coreMat);
-    core.position.set(0, 0.28, -0.7);
-    group.add(core);
-
-    // Tail fin pair — swept upward
-    const tfGeo = new THREE.BoxGeometry(0.08, 1.1, 0.9);
-    [-0.8, 0.8].forEach(x => {
-      const tf = new THREE.Mesh(tfGeo, makeMat(col, 0.4, 0.4, 0.2));
-      tf.position.set(x, 0.25, 1.55);
-      tf.rotation.z = x > 0 ? -0.15 : 0.15;
-      group.add(tf);
-    });
+  } else if(id===10){
+    // ── Transcendent Aeon: crystalline hull, dual offset halo rings, chronos orb, ghostly afterimage ──
+    const aeonCol = new THREE.Color(col);
+    // Core hull — elongated crystal diamond
+    const hullGeo=new THREE.OctahedronGeometry(1.6,0);
+    const hull=new THREE.Mesh(hullGeo,makeMat(col,0.65,0.15,0.05));
+    hull.scale.set(0.55,0.38,2.4); hull.position.z=-0.15; group.add(hull);
+    // Ghost overlay hull (slightly larger, translucent)
+    const ghostHullGeo=new THREE.OctahedronGeometry(1.6,0);
+    const ghostHullMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x8888ff),emissive:new THREE.Color(0x4444cc),emissiveIntensity:0.6,metalness:0,roughness:0.1,transparent:true,opacity:0.22});
+    const ghostHull=new THREE.Mesh(ghostHullGeo,ghostHullMat);
+    ghostHull.scale.set(0.7,0.5,2.6); ghostHull.position.z=-0.15; group.add(ghostHull);
+    // Forward prow
+    const prowGeo=new THREE.ConeGeometry(0.24,3.2,6);
+    const prow=new THREE.Mesh(prowGeo,makeMat(col,1.2,0.05,0.0));
+    prow.rotation.x=-Math.PI/2; prow.position.set(0,0,-3.0); group.add(prow);
+    // Crystal wings
+    const rfShape=new THREE.Shape();rfShape.moveTo(0,0);rfShape.lineTo(4.0,-0.2);rfShape.lineTo(3.6,1.0);rfShape.lineTo(2.4,2.6);rfShape.lineTo(1.2,3.0);rfShape.lineTo(0.3,2.2);rfShape.lineTo(0,1.0);
+    const rfGeo=new THREE.ShapeGeometry(rfShape);
+    const rfMat=new THREE.MeshStandardMaterial({color:aeonCol,emissive:aeonCol.clone().multiplyScalar(0.5),side:THREE.DoubleSide,metalness:0.05,roughness:0.05,transparent:true,opacity:0.75});
+    [-1,1].forEach(s=>{const rfw=new THREE.Mesh(rfGeo,rfMat.clone());rfw.rotation.x=Math.PI/2;rfw.scale.x=s;rfw.position.set(s*0.52,-0.06,0.1);group.add(rfw);});
+    // Upper shard wings
+    const sh2Shape=new THREE.Shape();sh2Shape.moveTo(0,0);sh2Shape.lineTo(2.6,0.1);sh2Shape.lineTo(1.8,1.8);sh2Shape.lineTo(0.4,2.0);sh2Shape.lineTo(0,0.8);
+    const sh2Geo=new THREE.ShapeGeometry(sh2Shape);
+    const sh2Mat=new THREE.MeshStandardMaterial({color:aeonCol,emissive:new THREE.Color(0xaaaaff).multiplyScalar(0.7),side:THREE.DoubleSide,metalness:0,roughness:0,transparent:true,opacity:0.52});
+    [-1,1].forEach(s=>{const sh2=new THREE.Mesh(sh2Geo,sh2Mat.clone());sh2.rotation.x=Math.PI/2;sh2.rotation.z=-s*0.12;sh2.scale.x=s;sh2.position.set(s*0.53,0.55,-0.4);group.add(sh2);});
+    // Dual chronos rings (offset/skewed — time is fractured)
+    const cr1Geo=new THREE.TorusGeometry(1.85,0.08,8,32);
+    const cr1Mat=new THREE.MeshBasicMaterial({color:0xaaaaff,transparent:true,opacity:0.8});
+    const cr1=new THREE.Mesh(cr1Geo,cr1Mat);cr1.rotation.x=Math.PI*0.08;cr1.position.set(0,0.6,-0.3);group.add(cr1);
+    const cr2Geo=new THREE.TorusGeometry(2.3,0.05,6,28);
+    const cr2Mat=new THREE.MeshBasicMaterial({color:0x6666cc,transparent:true,opacity:0.4});
+    const cr2=new THREE.Mesh(cr2Geo,cr2Mat);cr2.rotation.x=Math.PI*0.08;cr2.rotation.z=Math.PI*0.15;cr2.position.set(0,0.6,-0.3);group.add(cr2);
+    // Chronos orb — pure time energy core
+    const cOrbGeo=new THREE.SphereGeometry(0.52,14,14);
+    const cOrbMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0xffffff),emissive:new THREE.Color(0x8888ff),emissiveIntensity:2.5,metalness:0,roughness:0,transparent:true,opacity:1.0});
+    const cOrb=new THREE.Mesh(cOrbGeo,cOrbMat);cOrb.position.set(0,0.25,-0.6);group.add(cOrb);
+    const icGeo=new THREE.SphereGeometry(0.2,8,8);
+    const icMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1.0});
+    const ic=new THREE.Mesh(icGeo,icMat);ic.position.set(0,0.25,-0.6);group.add(ic);
+    // Tail crystal fins
+    const tcfGeo=new THREE.BoxGeometry(0.07,1.2,0.85);
+    [-0.78,0.78].forEach(x=>{const tcf=new THREE.Mesh(tcfGeo,makeMat(col,0.6,0.1,0.05));tcf.position.set(x,0.22,1.6);tcf.rotation.z=x>0?-0.12:0.12;group.add(tcf);});
+    // Ghost afterimage — always-trailing translucent copy
+    const ghostGeo=new THREE.OctahedronGeometry(1.6,0);
+    const ghostMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x4444cc),emissive:new THREE.Color(0x2222aa),emissiveIntensity:0.7,metalness:0,roughness:0.2,transparent:true,opacity:0.18});
+    const ghost=new THREE.Mesh(ghostGeo,ghostMat);
+    ghost.scale.set(0.58,0.4,2.5);ghost.position.z=2.8;group.add(ghost);
+    chronosGhostMesh=ghost;
   }
 
   // Engine nozzle (shared for all)
@@ -726,7 +739,6 @@ function updateVoidParticles(){
 // SOUL BURST PARTICLES (Eternal Seraph explosion)
 // ══════════════════════════════════════════════════════════
 function spawnSoulBurst(){
-  // Radiating golden rays from ship position
   const colors=[0xfffacd, 0xfff080, 0xffd700, 0xffffff, 0xffe4a0, 0xffcc44];
   const sx=ship.x, sy=0, sz=0;
   for(let i=0;i<48;i++){
@@ -750,7 +762,6 @@ function spawnSoulBurst(){
     });
     scene.add(mesh);
   }
-  // Seraph-specific: flash halo brighter
   seraphSoulBurstFlashFrames = 45;
   soulLight.position.set(sx, sy+1, sz);
   soulLight.intensity = 22;
@@ -765,7 +776,6 @@ function updateSoulParticles(){
     p.mesh.scale.setScalar(Math.max(0.04,p.life/p.maxLife*1.3));
     if(p.life<=0){scene.remove(p.mesh);soulParticles.splice(i,1);}
   }
-  // Decay halo flash and soul light
   if(seraphSoulBurstFlashFrames>0){seraphSoulBurstFlashFrames--;}
   if(soulLight.intensity>0)soulLight.intensity=Math.max(0,soulLight.intensity*0.88);
 }
@@ -817,6 +827,47 @@ function updateParticles3D(){
 }
 
 // ══════════════════════════════════════════════════════════
+// GEM OBJECTS (Singularity power — 3D collectible gems)
+// ══════════════════════════════════════════════════════════
+function spawnGem(laneIndex){
+  const geo=new THREE.OctahedronGeometry(0.4,0);
+  const mat=new THREE.MeshStandardMaterial({color:0x00ffd0,emissive:new THREE.Color(0x00ffd0),emissiveIntensity:1.4,metalness:0.3,roughness:0.1,transparent:true,opacity:0.95});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.position.set(LANES_3D[laneIndex],0.4,SPAWN_Z);
+  scene.add(mesh);
+  gemObjects.push({mesh,lane:laneIndex,z:SPAWN_Z});
+}
+function clearGems(){
+  gemObjects.forEach(g=>scene.remove(g.mesh));
+  gemObjects=[];
+}
+function updateGems(spd3D){
+  for(let i=gemObjects.length-1;i>=0;i--){
+    const g=gemObjects[i];
+    g.z+=spd3D;
+    g.mesh.position.z=g.z;
+    g.mesh.rotation.y+=0.06;
+    // Passive Singularity pull — gems drift toward player lane
+    if(chosenCosmetic===9){
+      const targetX=LANES_3D[ship.lane];
+      g.mesh.position.x+=(targetX-g.mesh.position.x)*0.04;
+    }
+    // Collection check
+    if(g.z>PASS_Z-2&&g.z<PASS_Z+2){
+      const collectRange=chosenCosmetic===9?4.5:1.8;
+      if(Math.abs(g.mesh.position.x-ship.x)<collectRange){
+        gems++;saveProgress();updateAllRankUi();
+        spawnParticles3D(g.mesh.position.x,g.mesh.position.y,g.mesh.position.z,6);
+        showToast("💎 +1 Gem!",900);
+        scene.remove(g.mesh);gemObjects.splice(i,1);
+        continue;
+      }
+    }
+    if(g.z>PASS_Z+3){scene.remove(g.mesh);gemObjects.splice(i,1);}
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // LASER BEAM
 // ══════════════════════════════════════════════════════════
 let laserFrames3D=0,laserLane3D=0;
@@ -836,7 +887,7 @@ function showLaserBeam(laneX){
 }
 
 // ══════════════════════════════════════════════════════════
-// SCREEN TELEPORT FLASH
+// SCREEN FLASHES
 // ══════════════════════════════════════════════════════════
 function doTeleportScreenFlash(){
   const el=document.getElementById("teleportFlash");
@@ -845,14 +896,30 @@ function doTeleportScreenFlash(){
   el.classList.add("teleport-anim");
   setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},300);
 }
-
-// Soul burst screen flash (gold)
 function doSoulBurstScreenFlash(){
   const el=document.getElementById("teleportFlash");
   el.style.background="radial-gradient(ellipse at center, rgba(255,250,150,0.75) 0%, rgba(255,200,50,0.45) 45%, transparent 100%)";
   el.style.display="block";el.classList.remove("teleport-anim");void el.offsetWidth;
   el.classList.add("teleport-anim");
   setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},500);
+}
+// NEW: Singularity pulse flash (red)
+function doSingularityFlash(){
+  const el=document.getElementById("teleportFlash");
+  el.style.background="radial-gradient(ellipse at center, rgba(255,60,60,0.55) 0%, rgba(180,0,0,0.25) 50%, transparent 100%)";
+  el.style.display="block";el.classList.remove("teleport-anim");void el.offsetWidth;
+  el.classList.add("teleport-anim");
+  setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},400);
+}
+// NEW: Chronos phase flash (blue-white)
+function doChronosFlash(entering){
+  const el=document.getElementById("teleportFlash");
+  el.style.background=entering
+    ?"radial-gradient(ellipse at center, rgba(180,180,255,0.6) 0%, rgba(80,80,200,0.3) 50%, transparent 100%)"
+    :"radial-gradient(ellipse at center, rgba(255,255,255,0.45) 0%, rgba(150,150,255,0.2) 50%, transparent 100%)";
+  el.style.display="block";el.classList.remove("teleport-anim");void el.offsetWidth;
+  el.classList.add("teleport-anim");
+  setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},350);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -877,6 +944,8 @@ const ship={lane:1,x:0,targetX:0,moveSpeed:.11,tilt:0};
 // ══════════════════════════════════════════════════════════
 function isSeraph(){return chosenCosmetic===8;}
 function isPhantomatic(){return chosenCosmetic===7;}
+function isHarbinger(){return chosenCosmetic===9;}
+function isAeon(){return chosenCosmetic===10;}
 function hasRunBoost(id){return activeRunBoosts.includes(id);}
 function getPowerActive(name){return COSMETICS[chosenCosmetic].powerName===name;}
 function isBoosted(id){return boostedShips.includes(id);}
@@ -886,7 +955,6 @@ function getMilestoneXpBonus(){if(chosenCosmetic===3&&isBoosted(3))return 2;if(g
 function getShieldEveryDodged(){if(chosenCosmetic===2&&isBoosted(2))return 2;if(getPowerActive("Shield on Dodge"))return 5;return null;}
 function getLegendRevives(){if(chosenCosmetic===5&&isBoosted(5))return 2;if(getPowerActive("Revive"))return 1;return 0;}
 function getGodlyCooldownFrames(){return(chosenCosmetic===6&&isBoosted(6))?900:1800;}
-// Soul Burst triggers every N dodges
 function getSoulBurstEvery(){
   if(!isSeraph())return 999999;
   return(isBoosted(8))?10:20;
@@ -901,7 +969,9 @@ function getBoostedDesc(id){
     "Two revives per game",
     "Half cooldown: F every 15s",
     "Ghost decoy on teleport — absorbs 1 hit",
-    "Soul Burst every 10 dodges + double XP burst"
+    "Soul Burst every 10 dodges + double XP burst",
+    "Singularity pulse every 8s + gems auto-collected from any lane",
+    "Chronos phase every 5s (3s invincible) + ghost trail always visible",
   ][id]||"";
 }
 
@@ -915,21 +985,34 @@ function flashScreen(color){
 // SOUL BURST (Eternal Seraph power)
 // ══════════════════════════════════════════════════════════
 function triggerSoulBurst(){
-  // Annihilate all asteroids
   const count=asteroids.length;
   asteroids.forEach(a=>{
     spawnParticles3D(a.x,0,a.z,6);
     if(a.mesh)scene.remove(a.mesh);
   });
   asteroids=[];
-  // XP burst
   const xpGain=isBoosted(8)?count*30:count*15;
   if(xpGain>0)addXp(xpGain);
-  // VFX
   spawnSoulBurst();
   doSoulBurstScreenFlash();
   const msg=isBoosted(8)?`✨ SOUL BURST! +${xpGain} XP (BOOSTED)`:`✨ SOUL BURST! +${xpGain} XP`;
   showToast(msg,2200);
+}
+
+// ══════════════════════════════════════════════════════════
+// SINGULARITY PULSE (Cosmic Harbinger power)
+// ══════════════════════════════════════════════════════════
+function triggerSingularityPulse(){
+  // Snap ALL gems on-screen to player lane instantly
+  const targetX=LANES_3D[ship.lane];
+  gemObjects.forEach(g=>{
+    g.mesh.position.x=targetX;
+    g.lane=ship.lane;
+  });
+  doSingularityFlash();
+  singLight.position.set(ship.x,0,0);
+  singLight.intensity=12;
+  showToast("🌀 Singularity Pulse — all gems drawn in!",1800);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1121,62 +1204,85 @@ document.getElementById("playerNameInput").addEventListener("input",function(){p
 function drawHomeCosmetics(){
   const list=document.getElementById("cosmeticList");list.innerHTML="";
   const svgByShip=[
+    // 0 Cadet Viper
     `<svg viewBox="-22 -30 44 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-28 -18,28 18,28" fill="#00ffcc" opacity="0.9"/><rect x="-4" y="-4" width="8" height="16" fill="#00aaaa" rx="2"/><polygon points="-18,28 -22,38 -12,30" fill="#00ddaa"/><polygon points="18,28 22,38 12,30" fill="#00ddaa"/></svg>`,
+    // 1 Pilot Falcon
     `<svg viewBox="-26 -30 52 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-28 -20,20 -10,36 10,36 20,20" fill="#00FF00" opacity="0.9"/><polygon points="-26,8 -20,20 0,0" fill="#00cc00"/><polygon points="26,8 20,20 0,0" fill="#00cc00"/></svg>`,
+    // 2 Commander Nova
     `<svg viewBox="-20 -30 40 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="14" ry="26" fill="#0099FF" opacity="0.9"/><ellipse cx="-14" cy="4" rx="6" ry="4" fill="#0077cc"/><ellipse cx="14" cy="4" rx="6" ry="4" fill="#0077cc"/></svg>`,
+    // 3 Captain Phoenix
     `<svg viewBox="-22 -32 44 70" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-30 -20,16 0,38 20,16" fill="#FF6600" opacity="0.9"/><polygon points="-20,16 -28,22 -10,18" fill="#cc4400"/><polygon points="20,16 28,22 10,18" fill="#cc4400"/></svg>`,
+    // 4 Admiral Eclipse
     `<svg viewBox="-24 -20 48 52" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="20" ry="12" fill="#FF00FF" opacity="0.85"/><ellipse cx="0" cy="0" rx="24" ry="4" fill="none" stroke="#FF00FF" stroke-width="2.5" opacity="0.7"/><ellipse cx="0" cy="-4" rx="10" ry="7" fill="#cc00cc" opacity="0.9"/></svg>`,
+    // 5 Legend Starcruiser
     `<svg viewBox="-20 -32 40 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><rect x="-16" y="-16" width="32" height="44" fill="#FFFF00" opacity="0.9" rx="3"/><polygon points="0,-32 -12,-16 12,-16" fill="#ffdd00"/><rect x="-20" y="-4" width="40" height="10" fill="#cccc00" rx="2"/></svg>`,
+    // 6 Godly Dragon
     `<svg viewBox="-26 -34 52 72" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="16" ry="26" fill="#00fff7" opacity="0.9"/><polygon points="0,-34 -18,8 18,8" fill="#00ddee" opacity="0.8"/><polygon points="-16,4 -26,20 -6,24 -12,10" fill="#ffffff" opacity="0.6"/><polygon points="16,4 26,20 6,24 12,10" fill="#ffffff" opacity="0.6"/></svg>`,
-    // Mythic Phantom
+    // 7 Mythic Phantom
     `<svg viewBox="-26 -36 52 76" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="vg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="100%" stop-color="#ff77ff" stop-opacity="0.2"/></radialGradient></defs>
       <polygon points="0,-34 -13,24 13,24" fill="#ff77ff" opacity="0.92"/>
       <polygon points="-13,12 -26,28 -4,30" fill="#cc44cc" opacity="0.8"/>
       <polygon points="13,12 26,28 4,30" fill="#cc44cc" opacity="0.8"/>
-      <polygon points="-13,12 -22,24 -8,26" fill="#ffffff" opacity="0.25"/>
-      <polygon points="13,12 22,24 8,26" fill="#ffffff" opacity="0.25"/>
       <circle cx="0" cy="-4" r="7" fill="url(#vg)" opacity="0.95"/>
       <circle cx="0" cy="-4" r="7" fill="none" stroke="#ff77ff" stroke-width="1.5" opacity="0.8"/>
-      <ellipse cx="0" cy="-4" rx="10" ry="3.5" fill="none" stroke="#ff99ff" stroke-width="1" opacity="0.6"/>
     </svg>`,
-    // Eternal Seraph — diamond hull, swept angel wings, halo ring, soul orb
+    // 8 Eternal Seraph
     `<svg viewBox="-28 -40 56 82" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="sg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
-          <stop offset="60%" stop-color="#fffacd" stop-opacity="0.8"/>
-          <stop offset="100%" stop-color="#ffd700" stop-opacity="0.1"/>
-        </radialGradient>
-        <radialGradient id="hg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#fffacd" stop-opacity="0.6"/>
-          <stop offset="100%" stop-color="#ffd080" stop-opacity="0"/>
-        </radialGradient>
+        <radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="60%" stop-color="#fffacd" stop-opacity="0.8"/><stop offset="100%" stop-color="#ffd700" stop-opacity="0.1"/></radialGradient>
+        <radialGradient id="hg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fffacd" stop-opacity="0.6"/><stop offset="100%" stop-color="#ffd080" stop-opacity="0"/></radialGradient>
       </defs>
-      <!-- hull diamond -->
       <polygon points="0,-37 -11,18 0,32 11,18" fill="#fffacd" opacity="0.93"/>
-      <!-- hull highlight -->
       <polygon points="0,-37 -5,0 5,0" fill="#ffffff" opacity="0.35"/>
-      <!-- large swept wings -->
       <polygon points="-11,4 -28,22 -10,30 -4,20" fill="#e8d880" opacity="0.82"/>
       <polygon points="11,4 28,22 10,30 4,20" fill="#e8d880" opacity="0.82"/>
-      <!-- wing veins -->
-      <line x1="-11" y1="4" x2="-24" y2="20" stroke="#ffffff" stroke-width="0.8" opacity="0.5"/>
-      <line x1="11" y1="4" x2="24" y2="20" stroke="#ffffff" stroke-width="0.8" opacity="0.5"/>
-      <!-- upper mini wings -->
-      <polygon points="-11,0 -22,10 -6,14" fill="#fff0a0" opacity="0.65"/>
-      <polygon points="11,0 22,10 6,14" fill="#fff0a0" opacity="0.65"/>
-      <!-- halo ring (tilted ellipse) -->
       <ellipse cx="0" cy="-16" rx="20" ry="5.5" fill="url(#hg)" opacity="0.4"/>
       <ellipse cx="0" cy="-16" rx="20" ry="5.5" fill="none" stroke="#fffacd" stroke-width="2" opacity="0.95"/>
-      <ellipse cx="0" cy="-16" rx="23" ry="6.5" fill="none" stroke="#ffd080" stroke-width="0.8" opacity="0.4"/>
-      <!-- soul orb -->
       <circle cx="0" cy="-10" r="8" fill="url(#sg)" opacity="1"/>
-      <circle cx="0" cy="-10" r="8" fill="none" stroke="#fffacd" stroke-width="1.2" opacity="0.85"/>
-      <!-- orb inner core -->
       <circle cx="0" cy="-10" r="3.5" fill="#ffffff" opacity="0.95"/>
-      <!-- engine glow -->
-      <ellipse cx="0" cy="34" rx="5" ry="2.5" fill="#fffacd" opacity="0.55"/>
+    </svg>`,
+    // 9 Cosmic Harbinger — delta wings, event horizon ring, singularity core
+    `<svg viewBox="-28 -38 56 80" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="cg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffaaaa" stop-opacity="1"/><stop offset="100%" stop-color="#ff3333" stop-opacity="0.1"/></radialGradient></defs>
+      <!-- hull -->
+      <polygon points="0,-36 -12,18 0,30 12,18" fill="#ff6666" opacity="0.9"/>
+      <polygon points="0,-36 -4,0 4,0" fill="#ffaaaa" opacity="0.4"/>
+      <!-- accretion wings -->
+      <polygon points="-12,8 -28,24 -8,28 -4,16" fill="#cc3333" opacity="0.85"/>
+      <polygon points="12,8 28,24 8,28 4,16" fill="#cc3333" opacity="0.85"/>
+      <!-- wing edge glow -->
+      <line x1="-12" y1="8" x2="-26" y2="22" stroke="#ff4444" stroke-width="1.5" opacity="0.7"/>
+      <line x1="12" y1="8" x2="26" y2="22" stroke="#ff4444" stroke-width="1.5" opacity="0.7"/>
+      <!-- event horizon ring -->
+      <ellipse cx="0" cy="-6" rx="16" ry="4.5" fill="none" stroke="#ff4444" stroke-width="2.2" opacity="0.95"/>
+      <ellipse cx="0" cy="-6" rx="20" ry="5.8" fill="none" stroke="#dd2222" stroke-width="0.8" opacity="0.4"/>
+      <!-- singularity core -->
+      <circle cx="0" cy="-6" r="7" fill="url(#cg)" opacity="1"/>
+      <circle cx="0" cy="-6" r="3" fill="#110000" opacity="1"/>
+      <circle cx="0" cy="-6" r="1.5" fill="#ffaaaa" opacity="0.9"/>
+    </svg>`,
+    // 10 Transcendent Aeon — crystalline dual wings, offset rings, white orb, ghost overlay
+    `<svg viewBox="-28 -42 56 86" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="ag" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="100%" stop-color="#c8c8ff" stop-opacity="0.1"/></radialGradient></defs>
+      <!-- ghost overlay hull (dimmer, slightly larger) -->
+      <polygon points="0,-40 -14,20 0,36 14,20" fill="#8888ff" opacity="0.22"/>
+      <!-- main hull -->
+      <polygon points="0,-38 -11,18 0,32 11,18" fill="#c8c8ff" opacity="0.9"/>
+      <polygon points="0,-38 -4,0 4,0" fill="#ffffff" opacity="0.45"/>
+      <!-- crystal wings -->
+      <polygon points="-11,4 -28,24 -10,32 -3,18" fill="#aaaaff" opacity="0.78"/>
+      <polygon points="11,4 28,24 10,32 3,18" fill="#aaaaff" opacity="0.78"/>
+      <!-- upper shards -->
+      <polygon points="-11,0 -22,12 -6,16" fill="#ddddff" opacity="0.55"/>
+      <polygon points="11,0 22,12 6,16" fill="#ddddff" opacity="0.55"/>
+      <!-- dual chronos rings (one slightly offset/skewed) -->
+      <ellipse cx="0" cy="-14" rx="18" ry="5" fill="none" stroke="#aaaaff" stroke-width="2" opacity="0.9"/>
+      <ellipse cx="1" cy="-12" rx="22" ry="5.8" fill="none" stroke="#6666cc" stroke-width="0.9" opacity="0.45"/>
+      <!-- chronos orb -->
+      <circle cx="0" cy="-8" r="8.5" fill="url(#ag)" opacity="1"/>
+      <circle cx="0" cy="-8" r="8.5" fill="none" stroke="#c8c8ff" stroke-width="1.2" opacity="0.8"/>
+      <circle cx="0" cy="-8" r="3.5" fill="#ffffff" opacity="1"/>
     </svg>`,
   ];
   COSMETICS.forEach(sc=>{
@@ -1204,13 +1310,15 @@ function clearGameObjects(){
   voidParticles.forEach(p=>scene.remove(p.mesh));voidParticles=[];
   soulParticles.forEach(p=>scene.remove(p.mesh));soulParticles=[];
   engineExhaust.forEach(p=>scene.remove(p.mesh));engineExhaust=[];
+  clearGems();
   if(laserBeam){scene.remove(laserBeam);laserBeam=null;}
   if(shipGroup){scene.remove(shipGroup);shipGroup=null;}
   if(shieldMesh){scene.remove(shieldMesh);shieldMesh=null;}
   if(ghostDecoy){scene.remove(ghostDecoy);ghostDecoy=null;ghostDecoyLane=-1;ghostDecoyFrames=0;}
   isTeleporting=false;teleportFrames=0;
-  voidLight.intensity=0;soulLight.intensity=0;
+  voidLight.intensity=0;soulLight.intensity=0;singLight.intensity=0;chronosLight.intensity=0;
   seraphHaloRing=null;seraphSoulBurstFlashFrames=0;
+  chronosGhostMesh=null;chronosPhased=false;chronosTimer=0;singularityTimer=0;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1224,6 +1332,8 @@ function showHomescreen(){
   document.getElementById("laserDisplay").style.display="none";
   document.getElementById("godlyCooldown").style.display="none";
   document.getElementById("soulBurstDisplay").style.display="none";
+  document.getElementById("singularityDisplay").style.display="none";
+  document.getElementById("chronosDisplay").style.display="none";
   document.getElementById("controls-hint").style.display="none";
   updateAllRankUi();drawHomeCosmetics();drawPowerDesc();renderQuestsTab();
   if(idleAnimId)cancelAnimationFrame(idleAnimId);
@@ -1248,6 +1358,7 @@ function resetGame(){
   dodgedCount=0;legendRevives=0;frozenFrames=0;godlyCooldown=0;
   questRunScore=0;laserShots=0;laserFrames3D=0;laserLane3D=0;
   seraphWingGlow=0;seraphSoulBurstFlashFrames=0;
+  singularityTimer=0;chronosTimer=0;chronosPhased=false;
   loadProgress();
   const boostedCadet=(chosenCosmetic===0&&isBoosted(0));
   startShieldActive=boostedCadet;startShieldFrames=boostedCadet?600:0;
@@ -1264,18 +1375,21 @@ function resetGame(){
   document.getElementById("godlyCooldown").style.display="none";
   const ld=document.getElementById("laserDisplay");
   if(laserShots>0){ld.style.display="block";document.getElementById("laserLeft").innerText=laserShots;}else{ld.style.display="none";}
-  // Soul Burst counter display
   const sd=document.getElementById("soulBurstDisplay");
-  if(isSeraph()){
-    sd.style.display="block";
-    document.getElementById("soulBurstCount").innerText=getSoulBurstEvery();
-  } else {sd.style.display="none";}
+  if(isSeraph()){sd.style.display="block";document.getElementById("soulBurstCount").innerText=getSoulBurstEvery();}else{sd.style.display="none";}
+  // NEW: show Singularity / Chronos HUD
+  document.getElementById("singularityDisplay").style.display=isHarbinger()?"block":"none";
+  document.getElementById("chronosDisplay").style.display=isAeon()?"block":"none";
+  if(isHarbinger())document.getElementById("singularityTimer").innerText="15";
+  if(isAeon())document.getElementById("chronosLabel").innerText="Solid 8s";
   shipGroup=createShipMesh(chosenCosmetic);
   shipGroup.position.set(LANES_3D[1],0,0);scene.add(shipGroup);
   shieldMesh=createShieldMesh();shieldMesh.position.set(LANES_3D[1],0,0);scene.add(shieldMesh);
   engineLight.color.set(COSMETICS[chosenCosmetic].color);
   if(isPhantomatic())voidLight.color.set(0xff44ff);
   if(isSeraph())soulLight.color.set(0xfffacd);
+  if(isHarbinger())singLight.color.set(0xff3333);
+  if(isAeon())chronosLight.color.set(0x8888ff);
   updateAllRankUi();renderBoostsTab();
 }
 
@@ -1335,12 +1449,7 @@ function updateAsteroids3D(speed3D){
         while(score>=xpMilestoneNext){addXp(Math.floor(XP_PER_MILESTONE*getMilestoneXpBonus()));xpMilestoneNext+=XP_MILESTONE_STEP;}
         saveProgress();
         if(score>highScore){highScore=score;localStorage.setItem("sd2_hs",highScore);document.getElementById("highScore").innerText=highScore;}
-
-        // ── Soul Burst check (Eternal Seraph) ─────────────────
-        if(isSeraph()&&dodgedCount>0&&dodgedCount%getSoulBurstEvery()===0){
-          triggerSoulBurst();
-        }
-        // Update Soul Burst countdown display
+        if(isSeraph()&&dodgedCount>0&&dodgedCount%getSoulBurstEvery()===0){triggerSoulBurst();}
         if(isSeraph()){
           const remaining=getSoulBurstEvery()-(dodgedCount%getSoulBurstEvery());
           document.getElementById("soulBurstCount").innerText=remaining===getSoulBurstEvery()?getSoulBurstEvery():remaining;
@@ -1350,6 +1459,10 @@ function updateAsteroids3D(speed3D){
     }
     // ── Collision check ───────────────────────────────────
     if(Math.abs(a.x-ship.x)<2.0&&a.z>-2&&a.z<2.5){
+      // Aeon Chronos phase — pass through harmlessly
+      if(isAeon()&&chronosPhased){
+        spawnParticles3D(a.x,0,a.z,5);scene.remove(a.mesh);asteroids.splice(index,1);continue;
+      }
       if(isPhantomatic()&&isTeleporting)continue;
       if(isPhantomatic()&&isBoosted(7)&&ghostDecoy&&ghostDecoyLane===ship.lane){
         spawnVoidBurst(a.x,0,a.z);
@@ -1397,30 +1510,60 @@ function updateShip3D(){
     shipGroup.rotation.z=-ship.tilt;
     shipGroup.position.y=Math.sin(Date.now()*0.002)*0.12;
 
-    // Phantom void orb ring spin
     if(isPhantomatic()){
       shipGroup.children.forEach(child=>{
         if(child.geometry&&child.geometry.type==="TorusGeometry"){child.rotation.z+=0.04;}
       });
     }
 
-    // Eternal Seraph — halo spin + soul glow pulse
     if(isSeraph()&&seraphHaloRing){
       seraphHaloRing.rotation.z+=0.018;
-      // Pulse halo brightness during soul burst flash
       const burstGlow=seraphSoulBurstFlashFrames>0?(seraphSoulBurstFlashFrames/45):0;
       const baseGlow=0.7+Math.sin(Date.now()*0.003)*0.15;
       seraphHaloRing.material.opacity=Math.min(1.0,baseGlow+burstGlow*0.9);
-      // Gentle wing pulsing light
       seraphWingGlow=0.5+Math.sin(Date.now()*0.0025)*0.3+burstGlow*0.5;
-      if(soulLight.intensity<1){
-        soulLight.intensity=seraphWingGlow*1.8;
-        soulLight.position.set(ship.x,1,-0.5);
+      if(soulLight.intensity<1){soulLight.intensity=seraphWingGlow*1.8;soulLight.position.set(ship.x,1,-0.5);}
+    }
+
+    // ── Cosmic Harbinger: spin event horizon ring ──
+    if(isHarbinger()){
+      shipGroup.children.forEach(child=>{
+        if(child.geometry&&child.geometry.type==="TorusGeometry"){child.rotation.z+=0.03;}
+      });
+      singLight.position.set(ship.x,0,0);
+      singLight.intensity=Math.max(0,singLight.intensity*0.92);
+    }
+
+    // ── Transcendent Aeon: spin chronos rings, pulse ghost ──
+    if(isAeon()){
+      let ringIdx=0;
+      shipGroup.children.forEach(child=>{
+        if(child.geometry&&child.geometry.type==="TorusGeometry"){
+          child.rotation.z+=ringIdx===0?0.022:-0.016; ringIdx++;
+        }
+      });
+      // Ghost afterimage pulse
+      if(chronosGhostMesh){
+        const ghostOpacity=chronosPhased?0.45+Math.sin(Date.now()*0.01)*0.15:0.16;
+        chronosGhostMesh.material.opacity=ghostOpacity;
+        chronosGhostMesh.position.z=2.8+Math.sin(Date.now()*0.005)*0.3;
+      }
+      chronosLight.position.set(ship.x,0,0);
+      if(chronosPhased){
+        chronosLight.intensity=1.5+Math.sin(Date.now()*0.015)*0.8;
+        // Flicker ship during phase
+        if(Math.floor(Date.now()/180)%2===0){
+          shipGroup.visible=Math.random()>0.12;
+        } else {
+          shipGroup.visible=true;
+        }
+      } else {
+        chronosLight.intensity=Math.max(0,chronosLight.intensity*0.92);
+        shipGroup.visible=true;
       }
     }
   }
 
-  // Shield
   const shieldOn=(chosenCosmetic===0&&isBoosted(0)&&startShieldActive)||(shieldActive);
   if(shieldMesh){
     shieldMesh.position.x=ship.x;
@@ -1438,6 +1581,63 @@ function updateShip3D(){
 
   if(Math.random()<0.35&&!isTeleporting){
     spawnEngineParticle(ship.x,COSMETICS[chosenCosmetic].color);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// SINGULARITY TIMER UPDATE
+// ══════════════════════════════════════════════════════════
+function updateSingularity(){
+  if(!isHarbinger()||gameOver)return;
+  singularityTimer++;
+  const secLeft=Math.ceil((SINGULARITY_INTERVAL-singularityTimer)/60);
+  document.getElementById("singularityTimer").innerText=Math.max(0,secLeft);
+  if(singularityTimer>=SINGULARITY_INTERVAL){
+    singularityTimer=0;
+    triggerSingularityPulse();
+    singLight.intensity=10;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// CHRONOS TIMER UPDATE
+// ══════════════════════════════════════════════════════════
+function updateChronos(){
+  if(!isAeon()||gameOver)return;
+  chronosTimer++;
+  if(!chronosPhased){
+    const secLeft=Math.ceil((CHRONOS_SOLID-chronosTimer)/60);
+    document.getElementById("chronosLabel").innerText=`Solid ${Math.max(0,secLeft)}s`;
+    if(chronosTimer>=CHRONOS_SOLID){
+      chronosPhased=true;chronosTimer=0;
+      doChronosFlash(true);
+      showToast("🌀 Chronos Phase — you are intangible!",1600);
+      chronosLight.intensity=3;
+    }
+  } else {
+    const secLeft=Math.ceil((CHRONOS_PHASED-chronosTimer)/60);
+    document.getElementById("chronosLabel").innerText=`PHASED ${Math.max(0,secLeft)}s`;
+    if(chronosTimer>=CHRONOS_PHASED){
+      chronosPhased=false;chronosTimer=0;
+      doChronosFlash(false);
+      showToast("Chronos Shift ended — solid again",1000);
+      if(shipGroup)shipGroup.visible=true;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// GEM SPAWN TIMER
+// ══════════════════════════════════════════════════════════
+let gemSpawnTimer=0;
+function updateGemSpawn(){
+  if(gameOver)return;
+  gemSpawnTimer++;
+  // Spawn a gem every ~8s; more frequently for Harbinger
+  const interval=isHarbinger()?360:480;
+  if(gemSpawnTimer>=interval){
+    gemSpawnTimer=0;
+    spawnGem(Math.floor(Math.random()*3));
   }
 }
 
@@ -1477,9 +1677,13 @@ function update(){
     if(frozenFrames===0&&difficultyTimer%300===0)baseSpeed+=.5;
     updateShip3D();
     updateAsteroids3D(spd3D);
+    updateGems(spd3D);
+    updateGemSpawn();
     preventImpossibleRows();
     if(frozenFrames===0&&Math.random()<.03)spawnAsteroid();
     if(godlyCooldown>0)godlyCooldown--;
+    updateSingularity();
+    updateChronos();
   }
   updateLaser3D();
   updateEngineExhaust();
