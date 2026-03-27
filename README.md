@@ -90,7 +90,9 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 #rankUpAnimation{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;font-weight:bold;color:gold;text-shadow:0 0 20px gold,0 0 40px gold;animation:rankUpPulse 1s ease-out;z-index:1000;pointer-events:none}
 @keyframes rankUpPulse{0%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-150%) scale(1.5);opacity:0}}
 #reviveFlash{display:none;position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,255,255,.25);z-index:99999;pointer-events:none}
-#gameOver{display:none;margin-top:5px;font-size:18px;color:#ff4444}
+#gameOver{display:none;margin-top:5px;font-size:18px;color:#ff4444;pointer-events:all}
+#returnHomeBtn{display:none;margin:8px auto 0;padding:9px 26px;font-size:15px;border:2px solid #ff4444;background:#1a0000;color:#ff4444;border-radius:8px;cursor:pointer;font-weight:bold;transition:background .2s,color .2s;pointer-events:all}
+#returnHomeBtn:hover{background:#ff4444;color:#fff}
 #godlyCooldown{position:fixed;left:50%;top:66px;transform:translateX(-50%);font-size:14px;font-weight:bold;color:#00fff7;background:rgba(0,0,0,.65);border-radius:6px;padding:2px 10px;display:none;z-index:999;box-shadow:0 0 8px #00fff7}
 #soulBurstDisplay{position:fixed;left:50%;top:88px;transform:translateX(-50%);font-size:13px;font-weight:bold;color:#fffacd;background:rgba(0,0,0,.65);border-radius:6px;padding:2px 10px;display:none;z-index:999;box-shadow:0 0 10px #fffacd88}
 #laserDisplay{position:fixed;right:8px;top:8px;font-size:14px;font-weight:bold;color:#ff6644;text-shadow:0 0 8px #ff4400;display:none;z-index:999;pointer-events:none}
@@ -117,6 +119,42 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
   100%{opacity:0;transform:scale(1.18)}
 }
 .teleport-anim{animation:teleportBurst .28s ease-out forwards}
+
+/* ON-SCREEN CONTROLS */
+#mobile-btns{
+  position:fixed;bottom:16px;left:0;right:0;
+  display:none;z-index:200;pointer-events:none;
+  padding:0 12px;
+}
+#mobile-btns-row{
+  display:flex;align-items:center;justify-content:space-between;
+  max-width:400px;margin:0 auto;
+}
+.mbtn{
+  width:68px;height:68px;border-radius:50%;
+  border:2px solid rgba(0,255,204,0.45);
+  background:rgba(0,0,0,0.6);
+  color:#00ffcc;font-size:28px;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:all;touch-action:manipulation;
+  user-select:none;-webkit-user-select:none;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:background .08s,border-color .08s;
+}
+.mbtn:active{background:rgba(0,255,204,0.2);border-color:#00ffcc;}
+#mbtn-boost{background:rgba(0,0,0,0.5);border-color:rgba(255,255,255,0.25);color:#fff;font-size:22px;}
+#mbtn-boost:active{background:rgba(255,255,255,0.12);}
+#mbtn-ability{border-color:rgba(255,200,0,0.5);color:#ffdd00;font-size:22px;}
+#mbtn-ability:active{background:rgba(255,200,0,0.18);}
+#mbtn-ability[data-type="laser"]{border-color:rgba(255,80,0,0.5);color:#ff6644;}
+/* mobile toggle button on homescreen */
+#mobile-toggle-row{margin:8px 0 2px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:#666}
+#mobile-toggle{
+  padding:4px 12px;font-size:12px;font-weight:bold;
+  border-radius:6px;cursor:pointer;border:1px solid #444;
+  background:#1a1a2e;color:#777;transition:all .15s;
+}
+#mobile-toggle.on{border-color:#00ffcc;color:#00ffcc;background:#0d2137;}
 </style>
 </head>
 <body>
@@ -135,6 +173,16 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 <div id="singularityDisplay">🌀 Singularity: <span id="singularityTimer">15</span>s</div>
 <div id="chronosDisplay">🌀 Chronos: <span id="chronosLabel">Solid 8s</span></div>
 <div id="controls-hint">← → / A D = Move &nbsp;|&nbsp; SPACE = Boost &nbsp;|&nbsp; L = Laser &nbsp;|&nbsp; F = Annihilate &nbsp;|&nbsp; R = Restart</div>
+
+<!-- MOBILE CONTROLS -->
+<div id="mobile-btns">
+  <div id="mobile-btns-row">
+    <div class="mbtn" id="mbtn-left">◀</div>
+    <div class="mbtn" id="mbtn-boost">BOOST</div>
+    <div class="mbtn" id="mbtn-ability" style="display:none">⚡</div>
+    <div class="mbtn" id="mbtn-right">▶</div>
+  </div>
+</div>
 
 <!-- HOMESCREEN -->
 <div id="homescreen">
@@ -170,6 +218,10 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
       <div id="questsList"></div>
     </div>
   </div>
+  <div id="mobile-toggle-row">
+    <span>📱 Mobile Controls</span>
+    <button id="mobile-toggle">OFF</button>
+  </div>
   <button id="startBtn">▶ Start Game</button>
 </div>
 
@@ -180,7 +232,8 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
   <div class="xpLabel" id="xpDisplay">XP: 0</div>
   <div class="gemsLabel">💎 <span class="gemCount">0</span></div>
   <div>Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="highScore">0</span></div>
-  <div id="gameOver">💥 GAME OVER — Press R to return Home</div>
+  <div id="gameOver">💥 GAME OVER</div>
+  <button id="returnHomeBtn">🏠 Return Home</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -536,87 +589,69 @@ function createShipMesh(id){
     [-0.8,0.8].forEach(x=>{const tf=new THREE.Mesh(tfGeo,makeMat(col,0.4,0.4,0.2));tf.position.set(x,0.25,1.55);tf.rotation.z=x>0?-0.15:0.15;group.add(tf);});
 
   } else if(id===9){
-    // ── Cosmic Harbinger: angular delta hull, accretion-disk wings, event-horizon ring, singularity core ──
     const crimson = new THREE.Color(col);
-    // Delta hull body
     const hullGeo = new THREE.OctahedronGeometry(1.7,0);
     const hull = new THREE.Mesh(hullGeo, makeMat(col,0.5,0.7,0.15));
     hull.scale.set(0.58,0.33,2.3); hull.position.z=-0.2; group.add(hull);
-    // Forward spike
     const prowGeo = new THREE.ConeGeometry(0.28,2.8,4);
     const prow = new THREE.Mesh(prowGeo, makeMat(col,1.0,0.3,0.05));
     prow.rotation.x=-Math.PI/2; prow.position.set(0,0,-2.8); group.add(prow);
-    // Accretion-disk wings
     const adShape=new THREE.Shape();
     adShape.moveTo(0,0);adShape.lineTo(4.5,-0.6);adShape.lineTo(4.0,0.5);adShape.lineTo(2.8,1.4);adShape.lineTo(1.0,1.8);adShape.lineTo(0,0.9);
     const adGeo=new THREE.ShapeGeometry(adShape);
     const adMat=new THREE.MeshStandardMaterial({color:crimson,emissive:crimson.clone().multiplyScalar(0.6),side:THREE.DoubleSide,metalness:0.5,roughness:0.15,transparent:true,opacity:0.82});
     [-1,1].forEach(s=>{const aw=new THREE.Mesh(adGeo,adMat.clone());aw.rotation.x=Math.PI/2;aw.scale.x=s;aw.position.set(s*0.55,-0.05,0.1);group.add(aw);});
-    // Event horizon ring
     const ehGeo=new THREE.TorusGeometry(1.55,0.13,9,32);
     const ehMat=new THREE.MeshBasicMaterial({color:0xff4444,transparent:true,opacity:0.9});
     const ehRing=new THREE.Mesh(ehGeo,ehMat);
     ehRing.rotation.x=Math.PI*0.05; ehRing.position.set(0,0.1,-0.2); group.add(ehRing);
-    // Outer glow ring
     const ehGlowGeo=new THREE.TorusGeometry(2.2,0.05,6,28);
     const ehGlowMat=new THREE.MeshBasicMaterial({color:0xdd2222,transparent:true,opacity:0.32});
     const ehGlow=new THREE.Mesh(ehGlowGeo,ehGlowMat);
     ehGlow.rotation.x=Math.PI*0.05; ehGlow.position.set(0,0.1,-0.2); group.add(ehGlow);
-    // Singularity core
     const coreGeo=new THREE.SphereGeometry(0.55,14,14);
     const coreMat=new THREE.MeshStandardMaterial({color:0x110000,emissive:new THREE.Color(0xff1111),emissiveIntensity:1.8,metalness:0,roughness:0,transparent:true,opacity:1.0});
     const core=new THREE.Mesh(coreGeo,coreMat); core.position.set(0,0.18,-0.5); group.add(core);
     const hotGeo=new THREE.SphereGeometry(0.18,8,8);
     const hotMat=new THREE.MeshBasicMaterial({color:0xffaaaa,transparent:true,opacity:0.9});
     const hot=new THREE.Mesh(hotGeo,hotMat); hot.position.set(0,0.18,-0.5); group.add(hot);
-    // Tail struts
     const strutGeo=new THREE.BoxGeometry(0.09,0.9,0.85);
     [-0.75,0.75].forEach(x=>{const st=new THREE.Mesh(strutGeo,makeMat(col,0.5,0.7,0.2));st.position.set(x,0.1,1.6);group.add(st);});
 
   } else if(id===10){
-    // ── Transcendent Aeon: crystalline hull, dual offset halo rings, chronos orb, ghostly afterimage ──
     const aeonCol = new THREE.Color(col);
-    // Core hull — elongated crystal diamond
     const hullGeo=new THREE.OctahedronGeometry(1.6,0);
     const hull=new THREE.Mesh(hullGeo,makeMat(col,0.65,0.15,0.05));
     hull.scale.set(0.55,0.38,2.4); hull.position.z=-0.15; group.add(hull);
-    // Ghost overlay hull (slightly larger, translucent)
     const ghostHullGeo=new THREE.OctahedronGeometry(1.6,0);
     const ghostHullMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x8888ff),emissive:new THREE.Color(0x4444cc),emissiveIntensity:0.6,metalness:0,roughness:0.1,transparent:true,opacity:0.22});
     const ghostHull=new THREE.Mesh(ghostHullGeo,ghostHullMat);
     ghostHull.scale.set(0.7,0.5,2.6); ghostHull.position.z=-0.15; group.add(ghostHull);
-    // Forward prow
     const prowGeo=new THREE.ConeGeometry(0.24,3.2,6);
     const prow=new THREE.Mesh(prowGeo,makeMat(col,1.2,0.05,0.0));
     prow.rotation.x=-Math.PI/2; prow.position.set(0,0,-3.0); group.add(prow);
-    // Crystal wings
     const rfShape=new THREE.Shape();rfShape.moveTo(0,0);rfShape.lineTo(4.0,-0.2);rfShape.lineTo(3.6,1.0);rfShape.lineTo(2.4,2.6);rfShape.lineTo(1.2,3.0);rfShape.lineTo(0.3,2.2);rfShape.lineTo(0,1.0);
     const rfGeo=new THREE.ShapeGeometry(rfShape);
     const rfMat=new THREE.MeshStandardMaterial({color:aeonCol,emissive:aeonCol.clone().multiplyScalar(0.5),side:THREE.DoubleSide,metalness:0.05,roughness:0.05,transparent:true,opacity:0.75});
     [-1,1].forEach(s=>{const rfw=new THREE.Mesh(rfGeo,rfMat.clone());rfw.rotation.x=Math.PI/2;rfw.scale.x=s;rfw.position.set(s*0.52,-0.06,0.1);group.add(rfw);});
-    // Upper shard wings
     const sh2Shape=new THREE.Shape();sh2Shape.moveTo(0,0);sh2Shape.lineTo(2.6,0.1);sh2Shape.lineTo(1.8,1.8);sh2Shape.lineTo(0.4,2.0);sh2Shape.lineTo(0,0.8);
     const sh2Geo=new THREE.ShapeGeometry(sh2Shape);
     const sh2Mat=new THREE.MeshStandardMaterial({color:aeonCol,emissive:new THREE.Color(0xaaaaff).multiplyScalar(0.7),side:THREE.DoubleSide,metalness:0,roughness:0,transparent:true,opacity:0.52});
     [-1,1].forEach(s=>{const sh2=new THREE.Mesh(sh2Geo,sh2Mat.clone());sh2.rotation.x=Math.PI/2;sh2.rotation.z=-s*0.12;sh2.scale.x=s;sh2.position.set(s*0.53,0.55,-0.4);group.add(sh2);});
-    // Dual chronos rings (offset/skewed — time is fractured)
     const cr1Geo=new THREE.TorusGeometry(1.85,0.08,8,32);
     const cr1Mat=new THREE.MeshBasicMaterial({color:0xaaaaff,transparent:true,opacity:0.8});
     const cr1=new THREE.Mesh(cr1Geo,cr1Mat);cr1.rotation.x=Math.PI*0.08;cr1.position.set(0,0.6,-0.3);group.add(cr1);
     const cr2Geo=new THREE.TorusGeometry(2.3,0.05,6,28);
     const cr2Mat=new THREE.MeshBasicMaterial({color:0x6666cc,transparent:true,opacity:0.4});
     const cr2=new THREE.Mesh(cr2Geo,cr2Mat);cr2.rotation.x=Math.PI*0.08;cr2.rotation.z=Math.PI*0.15;cr2.position.set(0,0.6,-0.3);group.add(cr2);
-    // Chronos orb — pure time energy core
     const cOrbGeo=new THREE.SphereGeometry(0.52,14,14);
     const cOrbMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0xffffff),emissive:new THREE.Color(0x8888ff),emissiveIntensity:2.5,metalness:0,roughness:0,transparent:true,opacity:1.0});
     const cOrb=new THREE.Mesh(cOrbGeo,cOrbMat);cOrb.position.set(0,0.25,-0.6);group.add(cOrb);
     const icGeo=new THREE.SphereGeometry(0.2,8,8);
     const icMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1.0});
     const ic=new THREE.Mesh(icGeo,icMat);ic.position.set(0,0.25,-0.6);group.add(ic);
-    // Tail crystal fins
     const tcfGeo=new THREE.BoxGeometry(0.07,1.2,0.85);
     [-0.78,0.78].forEach(x=>{const tcf=new THREE.Mesh(tcfGeo,makeMat(col,0.6,0.1,0.05));tcf.position.set(x,0.22,1.6);tcf.rotation.z=x>0?-0.12:0.12;group.add(tcf);});
-    // Ghost afterimage — always-trailing translucent copy
     const ghostGeo=new THREE.OctahedronGeometry(1.6,0);
     const ghostMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x4444cc),emissive:new THREE.Color(0x2222aa),emissiveIntensity:0.7,metalness:0,roughness:0.2,transparent:true,opacity:0.18});
     const ghost=new THREE.Mesh(ghostGeo,ghostMat);
@@ -903,7 +938,6 @@ function doSoulBurstScreenFlash(){
   el.classList.add("teleport-anim");
   setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},500);
 }
-// NEW: Singularity pulse flash (red)
 function doSingularityFlash(){
   const el=document.getElementById("teleportFlash");
   el.style.background="radial-gradient(ellipse at center, rgba(255,60,60,0.55) 0%, rgba(180,0,0,0.25) 50%, transparent 100%)";
@@ -911,7 +945,6 @@ function doSingularityFlash(){
   el.classList.add("teleport-anim");
   setTimeout(()=>{el.style.display="none";el.classList.remove("teleport-anim");},400);
 }
-// NEW: Chronos phase flash (blue-white)
 function doChronosFlash(entering){
   const el=document.getElementById("teleportFlash");
   el.style.background=entering
@@ -936,6 +969,7 @@ let laserShots=0,laserFrames=0,laserLane=0;
 let playerName="Pilot";
 let questRunScore=0;
 let animationFrameId=null,idleAnimId=null;
+let mobileControls=false;
 
 const ship={lane:1,x:0,targetX:0,moveSpeed:.11,tilt:0};
 
@@ -1003,7 +1037,6 @@ function triggerSoulBurst(){
 // SINGULARITY PULSE (Cosmic Harbinger power)
 // ══════════════════════════════════════════════════════════
 function triggerSingularityPulse(){
-  // Snap ALL gems on-screen to player lane instantly
   const targetX=LANES_3D[ship.lane];
   gemObjects.forEach(g=>{
     g.mesh.position.x=targetX;
@@ -1047,6 +1080,7 @@ function saveProgress(){
   localStorage.setItem("sd2_boosted",JSON.stringify(boostedShips));
   localStorage.setItem("sd2_gems",gems);
   localStorage.setItem("sd2_name",playerName);
+  localStorage.setItem("sd2_mobile",mobileControls?1:0);
 }
 function loadProgress(){
   xp=parseInt(localStorage.getItem("sd2_xp")||"0")||0;
@@ -1054,6 +1088,7 @@ function loadProgress(){
   boostedShips=JSON.parse(localStorage.getItem("sd2_boosted")||"[]");
   gems=parseInt(localStorage.getItem("sd2_gems")||"0")||0;
   playerName=localStorage.getItem("sd2_name")||"Pilot";
+  mobileControls=localStorage.getItem("sd2_mobile")==="1";
   xpMilestoneNext=XP_MILESTONE_STEP;
   document.getElementById("playerNameInput").value=playerName;
 }
@@ -1204,21 +1239,13 @@ document.getElementById("playerNameInput").addEventListener("input",function(){p
 function drawHomeCosmetics(){
   const list=document.getElementById("cosmeticList");list.innerHTML="";
   const svgByShip=[
-    // 0 Cadet Viper
     `<svg viewBox="-22 -30 44 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-28 -18,28 18,28" fill="#00ffcc" opacity="0.9"/><rect x="-4" y="-4" width="8" height="16" fill="#00aaaa" rx="2"/><polygon points="-18,28 -22,38 -12,30" fill="#00ddaa"/><polygon points="18,28 22,38 12,30" fill="#00ddaa"/></svg>`,
-    // 1 Pilot Falcon
     `<svg viewBox="-26 -30 52 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-28 -20,20 -10,36 10,36 20,20" fill="#00FF00" opacity="0.9"/><polygon points="-26,8 -20,20 0,0" fill="#00cc00"/><polygon points="26,8 20,20 0,0" fill="#00cc00"/></svg>`,
-    // 2 Commander Nova
     `<svg viewBox="-20 -30 40 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="14" ry="26" fill="#0099FF" opacity="0.9"/><ellipse cx="-14" cy="4" rx="6" ry="4" fill="#0077cc"/><ellipse cx="14" cy="4" rx="6" ry="4" fill="#0077cc"/></svg>`,
-    // 3 Captain Phoenix
     `<svg viewBox="-22 -32 44 70" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-30 -20,16 0,38 20,16" fill="#FF6600" opacity="0.9"/><polygon points="-20,16 -28,22 -10,18" fill="#cc4400"/><polygon points="20,16 28,22 10,18" fill="#cc4400"/></svg>`,
-    // 4 Admiral Eclipse
     `<svg viewBox="-24 -20 48 52" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="20" ry="12" fill="#FF00FF" opacity="0.85"/><ellipse cx="0" cy="0" rx="24" ry="4" fill="none" stroke="#FF00FF" stroke-width="2.5" opacity="0.7"/><ellipse cx="0" cy="-4" rx="10" ry="7" fill="#cc00cc" opacity="0.9"/></svg>`,
-    // 5 Legend Starcruiser
     `<svg viewBox="-20 -32 40 68" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><rect x="-16" y="-16" width="32" height="44" fill="#FFFF00" opacity="0.9" rx="3"/><polygon points="0,-32 -12,-16 12,-16" fill="#ffdd00"/><rect x="-20" y="-4" width="40" height="10" fill="#cccc00" rx="2"/></svg>`,
-    // 6 Godly Dragon
     `<svg viewBox="-26 -34 52 72" width="60" height="60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="0" cy="0" rx="16" ry="26" fill="#00fff7" opacity="0.9"/><polygon points="0,-34 -18,8 18,8" fill="#00ddee" opacity="0.8"/><polygon points="-16,4 -26,20 -6,24 -12,10" fill="#ffffff" opacity="0.6"/><polygon points="16,4 26,20 6,24 12,10" fill="#ffffff" opacity="0.6"/></svg>`,
-    // 7 Mythic Phantom
     `<svg viewBox="-26 -36 52 76" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="vg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="100%" stop-color="#ff77ff" stop-opacity="0.2"/></radialGradient></defs>
       <polygon points="0,-34 -13,24 13,24" fill="#ff77ff" opacity="0.92"/>
@@ -1227,7 +1254,6 @@ function drawHomeCosmetics(){
       <circle cx="0" cy="-4" r="7" fill="url(#vg)" opacity="0.95"/>
       <circle cx="0" cy="-4" r="7" fill="none" stroke="#ff77ff" stroke-width="1.5" opacity="0.8"/>
     </svg>`,
-    // 8 Eternal Seraph
     `<svg viewBox="-28 -40 56 82" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="60%" stop-color="#fffacd" stop-opacity="0.8"/><stop offset="100%" stop-color="#ffd700" stop-opacity="0.1"/></radialGradient>
@@ -1242,44 +1268,31 @@ function drawHomeCosmetics(){
       <circle cx="0" cy="-10" r="8" fill="url(#sg)" opacity="1"/>
       <circle cx="0" cy="-10" r="3.5" fill="#ffffff" opacity="0.95"/>
     </svg>`,
-    // 9 Cosmic Harbinger — delta wings, event horizon ring, singularity core
     `<svg viewBox="-28 -38 56 80" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="cg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffaaaa" stop-opacity="1"/><stop offset="100%" stop-color="#ff3333" stop-opacity="0.1"/></radialGradient></defs>
-      <!-- hull -->
       <polygon points="0,-36 -12,18 0,30 12,18" fill="#ff6666" opacity="0.9"/>
       <polygon points="0,-36 -4,0 4,0" fill="#ffaaaa" opacity="0.4"/>
-      <!-- accretion wings -->
       <polygon points="-12,8 -28,24 -8,28 -4,16" fill="#cc3333" opacity="0.85"/>
       <polygon points="12,8 28,24 8,28 4,16" fill="#cc3333" opacity="0.85"/>
-      <!-- wing edge glow -->
       <line x1="-12" y1="8" x2="-26" y2="22" stroke="#ff4444" stroke-width="1.5" opacity="0.7"/>
       <line x1="12" y1="8" x2="26" y2="22" stroke="#ff4444" stroke-width="1.5" opacity="0.7"/>
-      <!-- event horizon ring -->
       <ellipse cx="0" cy="-6" rx="16" ry="4.5" fill="none" stroke="#ff4444" stroke-width="2.2" opacity="0.95"/>
       <ellipse cx="0" cy="-6" rx="20" ry="5.8" fill="none" stroke="#dd2222" stroke-width="0.8" opacity="0.4"/>
-      <!-- singularity core -->
       <circle cx="0" cy="-6" r="7" fill="url(#cg)" opacity="1"/>
       <circle cx="0" cy="-6" r="3" fill="#110000" opacity="1"/>
       <circle cx="0" cy="-6" r="1.5" fill="#ffaaaa" opacity="0.9"/>
     </svg>`,
-    // 10 Transcendent Aeon — crystalline dual wings, offset rings, white orb, ghost overlay
     `<svg viewBox="-28 -42 56 86" width="60" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="ag" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="100%" stop-color="#c8c8ff" stop-opacity="0.1"/></radialGradient></defs>
-      <!-- ghost overlay hull (dimmer, slightly larger) -->
       <polygon points="0,-40 -14,20 0,36 14,20" fill="#8888ff" opacity="0.22"/>
-      <!-- main hull -->
       <polygon points="0,-38 -11,18 0,32 11,18" fill="#c8c8ff" opacity="0.9"/>
       <polygon points="0,-38 -4,0 4,0" fill="#ffffff" opacity="0.45"/>
-      <!-- crystal wings -->
       <polygon points="-11,4 -28,24 -10,32 -3,18" fill="#aaaaff" opacity="0.78"/>
       <polygon points="11,4 28,24 10,32 3,18" fill="#aaaaff" opacity="0.78"/>
-      <!-- upper shards -->
       <polygon points="-11,0 -22,12 -6,16" fill="#ddddff" opacity="0.55"/>
       <polygon points="11,0 22,12 6,16" fill="#ddddff" opacity="0.55"/>
-      <!-- dual chronos rings (one slightly offset/skewed) -->
       <ellipse cx="0" cy="-14" rx="18" ry="5" fill="none" stroke="#aaaaff" stroke-width="2" opacity="0.9"/>
       <ellipse cx="1" cy="-12" rx="22" ry="5.8" fill="none" stroke="#6666cc" stroke-width="0.9" opacity="0.45"/>
-      <!-- chronos orb -->
       <circle cx="0" cy="-8" r="8.5" fill="url(#ag)" opacity="1"/>
       <circle cx="0" cy="-8" r="8.5" fill="none" stroke="#c8c8ff" stroke-width="1.2" opacity="0.8"/>
       <circle cx="0" cy="-8" r="3.5" fill="#ffffff" opacity="1"/>
@@ -1335,6 +1348,7 @@ function showHomescreen(){
   document.getElementById("singularityDisplay").style.display="none";
   document.getElementById("chronosDisplay").style.display="none";
   document.getElementById("controls-hint").style.display="none";
+  document.getElementById("returnHomeBtn").style.display="none";
   updateAllRankUi();drawHomeCosmetics();drawPowerDesc();renderQuestsTab();
   if(idleAnimId)cancelAnimationFrame(idleAnimId);
   const idleAnimate=()=>{updateStarfield(3);renderer.render(scene,camera);idleAnimId=requestAnimationFrame(idleAnimate);};
@@ -1371,13 +1385,13 @@ function resetGame(){
   document.getElementById("score").innerText=0;
   document.getElementById("highScore").innerText=highScore;
   document.getElementById("gameOver").style.display="none";
+  document.getElementById("returnHomeBtn").style.display="none";
   document.getElementById("reviveFlash").style.display="none";
   document.getElementById("godlyCooldown").style.display="none";
   const ld=document.getElementById("laserDisplay");
   if(laserShots>0){ld.style.display="block";document.getElementById("laserLeft").innerText=laserShots;}else{ld.style.display="none";}
   const sd=document.getElementById("soulBurstDisplay");
   if(isSeraph()){sd.style.display="block";document.getElementById("soulBurstCount").innerText=getSoulBurstEvery();}else{sd.style.display="none";}
-  // NEW: show Singularity / Chronos HUD
   document.getElementById("singularityDisplay").style.display=isHarbinger()?"block":"none";
   document.getElementById("chronosDisplay").style.display=isAeon()?"block":"none";
   if(isHarbinger())document.getElementById("singularityTimer").innerText="15";
@@ -1392,6 +1406,13 @@ function resetGame(){
   if(isAeon())chronosLight.color.set(0x8888ff);
   updateAllRankUi();renderBoostsTab();
 }
+
+// ══════════════════════════════════════════════════════════
+// RETURN HOME BUTTON
+// ══════════════════════════════════════════════════════════
+document.getElementById("returnHomeBtn").onclick=function(){
+  showHomescreen();
+};
 
 // ══════════════════════════════════════════════════════════
 // LASER
@@ -1459,7 +1480,6 @@ function updateAsteroids3D(speed3D){
     }
     // ── Collision check ───────────────────────────────────
     if(Math.abs(a.x-ship.x)<2.0&&a.z>-2&&a.z<2.5){
-      // Aeon Chronos phase — pass through harmlessly
       if(isAeon()&&chronosPhased){
         spawnParticles3D(a.x,0,a.z,5);scene.remove(a.mesh);asteroids.splice(index,1);continue;
       }
@@ -1487,6 +1507,7 @@ function updateAsteroids3D(speed3D){
       spawnParticles3D(ship.x,0,0,25);
       gameOver=true;
       document.getElementById("gameOver").style.display="block";
+      document.getElementById("returnHomeBtn").style.display="inline-block";
       checkQuestsAfterRun();
     }
   }
@@ -1525,7 +1546,6 @@ function updateShip3D(){
       if(soulLight.intensity<1){soulLight.intensity=seraphWingGlow*1.8;soulLight.position.set(ship.x,1,-0.5);}
     }
 
-    // ── Cosmic Harbinger: spin event horizon ring ──
     if(isHarbinger()){
       shipGroup.children.forEach(child=>{
         if(child.geometry&&child.geometry.type==="TorusGeometry"){child.rotation.z+=0.03;}
@@ -1534,7 +1554,6 @@ function updateShip3D(){
       singLight.intensity=Math.max(0,singLight.intensity*0.92);
     }
 
-    // ── Transcendent Aeon: spin chronos rings, pulse ghost ──
     if(isAeon()){
       let ringIdx=0;
       shipGroup.children.forEach(child=>{
@@ -1542,7 +1561,6 @@ function updateShip3D(){
           child.rotation.z+=ringIdx===0?0.022:-0.016; ringIdx++;
         }
       });
-      // Ghost afterimage pulse
       if(chronosGhostMesh){
         const ghostOpacity=chronosPhased?0.45+Math.sin(Date.now()*0.01)*0.15:0.16;
         chronosGhostMesh.material.opacity=ghostOpacity;
@@ -1551,7 +1569,6 @@ function updateShip3D(){
       chronosLight.position.set(ship.x,0,0);
       if(chronosPhased){
         chronosLight.intensity=1.5+Math.sin(Date.now()*0.015)*0.8;
-        // Flicker ship during phase
         if(Math.floor(Date.now()/180)%2===0){
           shipGroup.visible=Math.random()>0.12;
         } else {
@@ -1633,7 +1650,6 @@ let gemSpawnTimer=0;
 function updateGemSpawn(){
   if(gameOver)return;
   gemSpawnTimer++;
-  // Spawn a gem every ~8s; more frequently for Harbinger
   const interval=isHarbinger()?360:480;
   if(gemSpawnTimer>=interval){
     gemSpawnTimer=0;
@@ -1730,6 +1746,93 @@ document.addEventListener("keydown",e=>{
   }
 });
 document.addEventListener("keyup",e=>{if(e.key===" ")boostKey=false;});
+
+// ══════════════════════════════════════════════════════════
+// MOBILE CONTROLS
+// ══════════════════════════════════════════════════════════
+function updateMobileToggleUI(){
+  const btn=document.getElementById("mobile-toggle");
+  if(mobileControls){btn.innerText="ON";btn.classList.add("on");}
+  else{btn.innerText="OFF";btn.classList.remove("on");}
+}
+
+function applyMobileControlsVisibility(){
+  const inGame=document.getElementById("ui").style.display!=="none";
+  document.getElementById("mobile-btns").style.display=(mobileControls&&inGame)?"block":"none";
+}
+
+function updateAbilityBtn(){
+  const ab=document.getElementById("mbtn-ability");
+  if(!ab)return;
+  if(laserShots>0){
+    ab.style.display="flex";ab.innerText="🔥";ab.dataset.type="laser";
+  } else if(getPowerActive("Time Annihilate")){
+    ab.style.display="flex";
+    ab.innerText=godlyCooldown>0?"⏳":"⚡";ab.dataset.type="annihilate";
+  } else {
+    ab.style.display="none";
+  }
+}
+
+document.getElementById("mobile-toggle").addEventListener("click",function(){
+  mobileControls=!mobileControls;
+  saveProgress();
+  updateMobileToggleUI();
+});
+
+(function setupMobileControls(){
+  function doLeft(){
+    if(document.getElementById("ui").style.display==="none"||gameOver)return;
+    if(isPhantomatic()){if(ship.lane>0)doPhantomTeleport(ship.lane-1);}
+    else if(ship.lane>0){ship.lane--;ship.targetX=LANES_3D[ship.lane];}
+  }
+  function doRight(){
+    if(document.getElementById("ui").style.display==="none"||gameOver)return;
+    if(isPhantomatic()){if(ship.lane<2)doPhantomTeleport(ship.lane+1);}
+    else if(ship.lane<2){ship.lane++;ship.targetX=LANES_3D[ship.lane];}
+  }
+  function doAbility(){
+    if(gameOver)return;
+    if(laserShots>0){fireLaser();return;}
+    if(getPowerActive("Time Annihilate")&&godlyCooldown===0){
+      asteroids.forEach(a=>scene.remove(a.mesh));asteroids=[];
+      godlyCooldown=getGodlyCooldownFrames();frozenFrames=180;
+      flashScreen("rgba(0,255,255,.25)");showToast("⚡ TIME ANNIHILATE!",1500);
+    }
+  }
+
+  function addBtn(id,down,up){
+    const el=document.getElementById(id);if(!el)return;
+    el.addEventListener("touchstart",e=>{e.preventDefault();if(down)down();},{passive:false});
+    if(up)el.addEventListener("touchend",e=>{e.preventDefault();up();},{passive:false});
+    if(up)el.addEventListener("touchcancel",()=>up(),{passive:false});
+    el.addEventListener("mousedown",e=>{if(down)down();});
+    if(up)el.addEventListener("mouseup",()=>up());
+  }
+
+  addBtn("mbtn-left",doLeft,null);
+  addBtn("mbtn-right",doRight,null);
+  addBtn("mbtn-boost",()=>{boostKey=true;},()=>{boostKey=false;});
+  addBtn("mbtn-ability",doAbility,null);
+
+  const _origShow=showHomescreen;
+  showHomescreen=function(){
+    _origShow();
+    document.getElementById("mobile-btns").style.display="none";
+    updateMobileToggleUI();
+  };
+  const _origHide=hideHomescreen;
+  hideHomescreen=function(){
+    _origHide();
+    applyMobileControlsVisibility();
+  };
+
+  const _origUpdate=update;
+  update=function(){
+    _origUpdate.apply(this,arguments);
+    if(mobileControls)updateAbilityBtn();
+  };
+})();
 </script>
 </body>
 </html>
