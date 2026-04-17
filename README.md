@@ -131,6 +131,57 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 #mobile-toggle-row{margin:8px 0 2px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:#666}
 #mobile-toggle{padding:4px 12px;font-size:12px;font-weight:bold;border-radius:6px;cursor:pointer;border:1px solid #444;background:#1a1a2e;color:#777;transition:all .15s}
 #mobile-toggle.on{border-color:#00ffcc;color:#00ffcc;background:#0d2137}
+
+/* ── TUTORIAL ── */
+#tutorialOverlay{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.72);
+  display:flex;align-items:center;justify-content:center;
+}
+#tutorialBox{
+  background:linear-gradient(160deg,#040d1e,#071428);
+  border:1px solid #00ffcc55;border-radius:16px;
+  padding:22px 24px 18px;
+  width:min(380px,92vw);
+  text-align:center;
+  box-shadow:0 0 40px #00ffcc22,0 0 80px #0008;
+  animation:tutSlideIn .35s ease-out;
+  position:relative;
+}
+@keyframes tutSlideIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+#tutorialProgress{margin-bottom:12px}
+.tut-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#223;margin:0 3px;transition:background .2s}
+.tut-dot.active{background:#00ffcc;box-shadow:0 0 6px #00ffcc}
+.tut-dot.done{background:#00886655}
+#tutorialIcon{font-size:44px;margin-bottom:8px;line-height:1}
+#tutorialTitle{font-size:18px;font-weight:bold;color:#00ffcc;margin-bottom:8px;text-shadow:0 0 10px #00ffcc66}
+#tutorialBody{font-size:13px;color:#b0c8d8;line-height:1.65;min-height:60px;margin-bottom:16px}
+#tutorialBody strong{color:#fff}
+#tutorialBody .key{
+  display:inline-block;background:#0a1a2a;border:1px solid #00ffcc55;
+  border-radius:5px;padding:1px 7px;font-size:12px;color:#00ffcc;
+  font-family:monospace;margin:0 2px;
+}
+#tutorialBtns{display:flex;gap:10px;justify-content:center}
+#tutorialSkip{
+  padding:7px 16px;font-size:12px;border-radius:7px;cursor:pointer;
+  border:1px solid #334;background:transparent;color:#556;
+  transition:color .15s,border-color .15s;
+}
+#tutorialSkip:hover{color:#aaa;border-color:#556}
+#tutorialNext{
+  padding:8px 22px;font-size:14px;font-weight:bold;border-radius:7px;cursor:pointer;
+  border:2px solid #00ffcc;background:#00ffcc18;color:#00ffcc;
+  transition:background .15s;
+}
+#tutorialNext:hover{background:#00ffcc33}
+#tutorialNext.finish{border-color:#ffd700;color:#ffd700;background:#ffd70018}
+#tutorialNext.finish:hover{background:#ffd70033}
+.tut-arrow{
+  position:fixed;pointer-events:none;z-index:8999;
+  font-size:28px;animation:tutBounce .7s ease-in-out infinite alternate;
+}
+@keyframes tutBounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
 </style>
 </head>
 <body>
@@ -148,6 +199,20 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 <div id="chronosDisplay">🕰 Chronos: <span id="chronosLabel">Solid 8s</span></div>
 <div id="galaxyHUD">🌌 NEBULA RIFT</div>
 <div id="controls-hint">← → / A D = Move &nbsp;|&nbsp; SPACE = Boost &nbsp;|&nbsp; L = Laser &nbsp;|&nbsp; F = Ability &nbsp;|&nbsp; R = Home</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorialOverlay" style="display:none">
+  <div id="tutorialBox">
+    <div id="tutorialProgress"><span id="tutorialDots"></span></div>
+    <div id="tutorialIcon"></div>
+    <div id="tutorialTitle"></div>
+    <div id="tutorialBody"></div>
+    <div id="tutorialBtns">
+      <button id="tutorialSkip">Skip</button>
+      <button id="tutorialNext">Next →</button>
+    </div>
+  </div>
+</div>
 
 <div id="mobile-btns">
   <div id="mobile-btns-row">
@@ -1306,23 +1371,29 @@ function drawHomeCosmetics(){
     `<svg viewBox="-28 -46 56 94" width="60" height="60"><defs><radialGradient id="og13" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="60%" stop-color="#ff8800" stop-opacity="0.7"/><stop offset="100%" stop-color="#ff8800" stop-opacity="0.1"/></radialGradient></defs><polygon points="-8,4 -28,30 -10,42 -2,20" fill="#ff8800" opacity="0.82"/><polygon points="8,4 28,30 10,42 2,20" fill="#ff8800" opacity="0.82"/><polygon points="0,-44 -10,16 0,28 10,16" fill="#ff8800" opacity="0.92"/><ellipse cx="0" cy="-16" rx="18" ry="4.5" fill="none" stroke="#ff8800" stroke-width="2.2" opacity="0.95"/><ellipse cx="0" cy="-10" rx="22" ry="5.5" fill="none" stroke="#ffaa44" stroke-width="1.2" opacity="0.6"/><ellipse cx="0" cy="-22" rx="14" ry="3.5" fill="none" stroke="#ffcc88" stroke-width="0.9" opacity="0.45"/><circle cx="0" cy="-10" r="11" fill="url(#og13)"/><circle cx="0" cy="-10" r="4.5" fill="#ffffff" opacity="1"/></svg>`,
   ];
 
+  const g2Unlocked=xp>=20000;
+
   COSMETICS.forEach(sc=>{
+    const g2=sc.galaxy===2;
+
     // G2 separator before ship 11
     if(sc.id===11){
       const sep=document.createElement("div");
       sep.className="g2-separator";
-      if(xp>=20000){
+      if(g2Unlocked){
         sep.style.cssText="color:#ff88ff;border-color:#550077;text-shadow:0 0 8px #dd44ff;";
         sep.innerHTML="🌌 NEBULA RIFT GALAXY";
       } else {
-        sep.style.cssText="color:#555;border-color:#333;";
-        sep.innerHTML="🔒 NEBULA RIFT — Reach Transcendent (20,000 XP) to unlock";
+        sep.style.cssText="color:#444;border-color:#2a0040;font-size:10px;";
+        sep.innerHTML=`🔒 NEBULA RIFT GALAXY — Locked<br><span style="font-size:9px;color:#333;font-weight:normal">Reach Transcendent rank (20,000 XP) to reveal</span>`;
       }
       list.appendChild(sep);
     }
 
+    // Hide G2 ships entirely until unlocked
+    if(g2&&!g2Unlocked)return;
+
     const unlocked=xp>=sc.unlockXp;
-    const g2=sc.galaxy===2;
     const div=document.createElement("div");
     div.className="cosmeticShip"+(chosenCosmetic===sc.id?" selected":"")+(unlocked?"":" locked")+(g2?" g2ship":"");
     div.title=sc.name+(unlocked?"":" (Locked — needs "+sc.unlockXp+" XP)");
@@ -1809,7 +1880,142 @@ document.getElementById("startBtn").onclick=()=>{
   hideHomescreen();resetGame();animationFrameId=requestAnimationFrame(update);
 };
 
-loadProgress();showHomescreen();
+// ══════════════════════════════════════════════════════════
+// TUTORIAL
+// ══════════════════════════════════════════════════════════
+const TUTORIAL_STEPS=[
+  {
+    icon:"🚀",
+    title:"Welcome to Stellar Drift!",
+    body:"You're piloting a ship through an asteroid field. Dodge asteroids to survive, earn XP, unlock ships, and collect gems.\n\nLet's learn the basics — it only takes a minute!"
+  },
+  {
+    icon:"↔️",
+    title:"Moving Your Ship",
+    body:"Your ship flies in <strong>3 lanes</strong>. Switch lanes to dodge incoming asteroids.\n\n<span class='key'>← →</span> or <span class='key'>A</span> <span class='key'>D</span> on keyboard.\n\nOn mobile, use the <strong>◀ ▶ buttons</strong> at the bottom.",
+    highlight:"controls-hint"
+  },
+  {
+    icon:"⚡",
+    title:"Boost",
+    body:"Hold <span class='key'>SPACE</span> (or the <strong>BOOST button</strong> on mobile) to fly faster — this also earns score faster!\n\nBoost is unlimited, but don't get reckless.",
+  },
+  {
+    icon:"💥",
+    title:"Asteroids & Shields",
+    body:"Hit an asteroid and it's <strong>Game Over</strong> — unless you have a shield! 🛡️\n\nShields absorb one hit. Some ships grant shields automatically. You can also equip the <strong>Iron Shell</strong> run boost to start every run with one.",
+  },
+  {
+    icon:"⭐",
+    title:"XP & Ranks",
+    body:"You earn <strong>XP</strong> by dodging asteroids, hitting score milestones, and just surviving.\n\nReach new ranks to <strong>unlock new ships</strong>, each with a unique special power. There are 11 ships in Galaxy 1 alone!",
+    highlight:"homeRank"
+  },
+  {
+    icon:"💎",
+    title:"Gems",
+    body:"<strong>💎 Gems</strong> are the premium currency. Earn them by leveling up, completing quests, and collecting them mid-run.\n\nSpend gems on:\n• <strong>Ship Boosters</strong> — enhance your ship's power\n• <strong>Run Boosts</strong> — one-run power-ups like Laser Shot or XP Surge",
+    highlight:"boosterBtn"
+  },
+  {
+    icon:"📜",
+    title:"Quests",
+    body:"Check the <strong>Quests tab</strong> for score challenges tied to specific ships. Complete them for bonus gems!\n\nFinish all 3 in a batch to unlock the next, harder batch.",
+    highlight:"homeTabs"
+  },
+  {
+    icon:"🌌",
+    title:"Galaxy 2 — Nebula Rift",
+    body:"Reach <strong>Transcendent rank (20,000 XP)</strong> to unlock the <strong>Nebula Rift Galaxy</strong> — a new purple dimension with 3 legendary ships and entirely new powers.\n\nThe galaxy stays hidden until you earn it. Good luck, pilot!",
+  },
+  {
+    icon:"🎮",
+    title:"You're Ready!",
+    body:"Quick recap:\n• <span class='key'>← →</span> Move &nbsp;|&nbsp; <span class='key'>SPACE</span> Boost\n• <span class='key'>F</span> Ship Ability &nbsp;|&nbsp; <span class='key'>L</span> Laser (if equipped)\n• <span class='key'>R</span> Return Home after game over\n\n<strong>Hit Start Game and survive as long as you can!</strong>",
+  },
+];
+
+let tutStep=0;
+let tutArrowEl=null;
+
+function tutRenderDots(){
+  const dots=document.getElementById("tutorialDots");
+  dots.innerHTML="";
+  TUTORIAL_STEPS.forEach((_,i)=>{
+    const d=document.createElement("span");
+    d.className="tut-dot"+(i===tutStep?" active":i<tutStep?" done":"");
+    dots.appendChild(d);
+  });
+}
+
+function tutFormatBody(text){
+  // Convert \n to <br> but keep existing HTML tags
+  return text.replace(/\n/g,"<br>");
+}
+
+function tutShowStep(idx){
+  tutStep=idx;
+  const step=TUTORIAL_STEPS[idx];
+  document.getElementById("tutorialIcon").innerText=step.icon;
+  document.getElementById("tutorialTitle").innerText=step.title;
+  document.getElementById("tutorialBody").innerHTML=tutFormatBody(step.body);
+  tutRenderDots();
+  const nextBtn=document.getElementById("tutorialNext");
+  const isLast=idx===TUTORIAL_STEPS.length-1;
+  nextBtn.innerText=isLast?"🚀 Let's Go!":"Next →";
+  nextBtn.className=isLast?"finish":"";
+  // Remove old arrow
+  if(tutArrowEl){tutArrowEl.remove();tutArrowEl=null;}
+  // Highlight element
+  if(step.highlight){
+    const target=document.getElementById(step.highlight);
+    if(target){
+      const rect=target.getBoundingClientRect();
+      tutArrowEl=document.createElement("div");
+      tutArrowEl.className="tut-arrow";
+      tutArrowEl.innerText="👆";
+      // Position arrow above the element
+      tutArrowEl.style.left=(rect.left+rect.width/2-16)+"px";
+      tutArrowEl.style.top=Math.max(4,rect.top-44)+"px";
+      document.body.appendChild(tutArrowEl);
+    }
+  }
+  // Re-animate box
+  const box=document.getElementById("tutorialBox");
+  box.style.animation="none";void box.offsetWidth;box.style.animation="tutSlideIn .25s ease-out";
+}
+
+function tutNext(){
+  if(tutStep<TUTORIAL_STEPS.length-1){
+    tutShowStep(tutStep+1);
+  } else {
+    tutDismiss();
+  }
+}
+
+function tutDismiss(){
+  if(tutArrowEl){tutArrowEl.remove();tutArrowEl=null;}
+  document.getElementById("tutorialOverlay").style.display="none";
+  localStorage.setItem("sd2_tutdone","1");
+}
+
+function maybeShowTutorial(){
+  if(localStorage.getItem("sd2_tutdone")==="1")return;
+  tutStep=0;
+  tutShowStep(0);
+  document.getElementById("tutorialOverlay").style.display="flex";
+}
+
+document.getElementById("tutorialNext").addEventListener("click",tutNext);
+document.getElementById("tutorialSkip").addEventListener("click",tutDismiss);
+document.addEventListener("keydown",e=>{
+  if(document.getElementById("tutorialOverlay").style.display!=="none"){
+    if(e.key==="Enter"||e.key===" "){e.preventDefault();tutNext();}
+    if(e.key==="Escape")tutDismiss();
+  }
+});
+
+loadProgress();showHomescreen();maybeShowTutorial();
 
 // ══════════════════════════════════════════════════════════
 // INPUT
