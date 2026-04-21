@@ -77,6 +77,115 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 #navQuests:hover{filter:brightness(1.15);box-shadow:0 3px 12px rgba(136,68,221,.55);}
 #navShop{background:linear-gradient(135deg,#006633,#00bb55);color:#fff;box-shadow:0 2px 8px rgba(0,180,80,.35);}
 #navShop:hover{filter:brightness(1.15);box-shadow:0 3px 12px rgba(0,180,80,.55);}
+#navPass{
+  background:linear-gradient(135deg,#6600cc,#ff00aa,#ffcc00);
+  background-size:200% 200%;
+  animation:passNavShift 3s ease infinite;
+  color:#fff;box-shadow:0 2px 8px rgba(180,0,200,.45);
+  text-shadow:0 1px 3px rgba(0,0,0,.5);
+}
+#navPass:hover{filter:brightness(1.15);}
+@keyframes passNavShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+/* ── CHROMATIC RARITY ── */
+@keyframes chromaticShift{
+  0%  {color:#ff4488;text-shadow:0 0 8px #ff4488;}
+  16% {color:#ff8800;text-shadow:0 0 8px #ff8800;}
+  33% {color:#ffee00;text-shadow:0 0 8px #ffee00;}
+  50% {color:#00ffaa;text-shadow:0 0 8px #00ffaa;}
+  66% {color:#00ccff;text-shadow:0 0 8px #00ccff;}
+  83% {color:#cc44ff;text-shadow:0 0 8px #cc44ff;}
+  100%{color:#ff4488;text-shadow:0 0 8px #ff4488;}
+}
+@keyframes chromaticBorder{
+  0%  {border-color:#ff4488;box-shadow:0 0 10px #ff448866;}
+  16% {border-color:#ff8800;box-shadow:0 0 10px #ff880066;}
+  33% {border-color:#ffee00;box-shadow:0 0 10px #ffee0066;}
+  50% {border-color:#00ffaa;box-shadow:0 0 10px #00ffaa66;}
+  66% {border-color:#00ccff;box-shadow:0 0 10px #00ccff66;}
+  83% {border-color:#cc44ff;box-shadow:0 0 10px #cc44ff66;}
+  100%{border-color:#ff4488;box-shadow:0 0 10px #ff448866;}
+}
+@keyframes chromaticBg{
+  0%  {background:linear-gradient(135deg,#1a0010,#0a0018)}
+  25% {background:linear-gradient(135deg,#001a0a,#001815)}
+  50% {background:linear-gradient(135deg,#0a1a00,#001505)}
+  75% {background:linear-gradient(135deg,#00101a,#000c1a)}
+  100%{background:linear-gradient(135deg,#1a0010,#0a0018)}
+}
+.rarity-chromatic{
+  animation:chromaticShift 2.5s linear infinite;
+  background:transparent!important;border:1px solid transparent;
+  animation:chromaticShift 2.5s linear infinite,chromaticBorder 2.5s linear infinite;
+  padding:1px 7px;border-radius:4px;font-size:10px;font-weight:bold;letter-spacing:.8px;display:inline-block;margin-bottom:5px;
+}
+.skinCard.chromatic-card{animation:chromaticBg 4s ease infinite,chromaticBorder 2.5s linear infinite;border-width:2px!important;}
+
+/* ── STELLAR PASS SCREEN ── */
+#passScreen{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:100;
+  background:rgba(4,2,20,.97);
+  border-radius:16px;
+  width:min(520px,96vw);max-height:93vh;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#cc44ff22 transparent;
+  padding:0;
+  animation:chromaticBorder 3s linear infinite;border:2px solid #cc44ff;
+}
+#passScreen::-webkit-scrollbar{width:4px}
+#passScreen::-webkit-scrollbar-thumb{background:#cc44ff33;border-radius:3px}
+#passHeader{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid #cc44ff22;
+  position:sticky;top:0;z-index:2;
+  background:rgba(4,2,20,.98);border-radius:16px 16px 0 0;
+}
+#passTitle{font-size:16px;font-weight:bold;animation:chromaticShift 2.5s linear infinite;}
+#passGemCount{font-size:12px;color:#888}
+#passBody{padding:12px 14px 18px}
+#passBanner{
+  border-radius:12px;padding:14px 16px;margin-bottom:12px;text-align:center;
+  animation:chromaticBg 4s ease infinite,chromaticBorder 2.5s linear infinite;
+  border:2px solid transparent;
+}
+#passBannerTitle{font-size:22px;font-weight:900;letter-spacing:2px;animation:chromaticShift 2.5s linear infinite;}
+#passBannerSub{font-size:11px;color:#aaa;margin-top:4px}
+#passXpBar{margin:10px 0 14px}
+#passXpLabel{font-size:11px;color:#888;margin-bottom:4px;display:flex;justify-content:space-between}
+#passXpTrack{height:12px;background:#0d0820;border-radius:6px;overflow:hidden;border:1px solid #330055}
+#passXpFill{height:100%;border-radius:6px;transition:width .4s;background:linear-gradient(90deg,#cc44ff,#ff44bb,#ffcc00)}
+#passTiersGrid{display:flex;flex-direction:column;gap:8px}
+.passTier{
+  display:flex;align-items:center;gap:10px;
+  background:#07040f;border:1px solid #1a0035;border-radius:10px;
+  padding:9px 12px;transition:border-color .2s;
+}
+.passTier.tier-unlocked{border-color:#330055;}
+.passTier.tier-claimed{border-color:#006622;background:#040e06;}
+.passTier.tier-available{animation:chromaticBorder 2.5s linear infinite;background:#0d0515;}
+.tierNum{
+  width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:bold;flex-shrink:0;
+  border:2px solid #330055;background:#0a0518;color:#776;
+}
+.passTier.tier-claimed .tierNum{background:#003311;border-color:#00cc44;color:#00ff66;}
+.passTier.tier-available .tierNum{animation:chromaticBorder 2.5s linear infinite;color:#fff;background:#1a0030;}
+.tierReward{flex:1}
+.tierRewardName{font-size:13px;font-weight:bold;color:#ccc}
+.passTier.tier-claimed .tierRewardName{color:#44aa66}
+.tierRewardDesc{font-size:10px;color:#556;margin-top:1px}
+.tierXpReq{font-size:10px;color:#445;text-align:right;flex-shrink:0}
+.passTier.tier-claimed .tierXpReq{color:#225}
+.tierClaimBtn{
+  padding:5px 14px;font-size:12px;font-weight:bold;border-radius:7px;cursor:pointer;border:none;flex-shrink:0;
+  animation:chromaticBorder 2.5s linear infinite;
+  background:linear-gradient(135deg,#220033,#110022);
+  color:#fff;transition:filter .15s;
+}
+.tierClaimBtn:hover{filter:brightness(1.2);}
+.tierClaimedBadge{font-size:11px;color:#00cc44;font-weight:bold;flex-shrink:0;}
+.tierLockedBadge{font-size:18px;flex-shrink:0;opacity:.4}
+#passFooter{margin-top:14px;padding:10px 12px;background:#070410;border-radius:10px;border:1px solid #1a0035;font-size:11px;color:#556;text-align:center;line-height:1.7}
 
 /* ── SHOP SCREEN ── */
 #shopScreen{
@@ -424,6 +533,7 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
     <button class="hmNavBtn" id="navBoosts">⚡ Boosts</button>
     <button class="hmNavBtn" id="navQuests">📜 Quests</button>
     <button class="hmNavBtn" id="navShop">🛒 Shop</button>
+    <button class="hmNavBtn" id="navPass">✦ StellarPass</button>
   </div>
   <div id="mobile-toggle-row">
     <span>📱 Mobile Controls</span>
@@ -447,6 +557,7 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
       <div id="hdPowerDesc"></div>
       <div id="hdUnlock"></div>
       <div id="hdBoostDesc"></div>
+      <div id="hdSkinInfo"></div>
       <button id="hdSelectBtn">✓ Select Ship</button>
     </div>
   </div>
@@ -490,6 +601,30 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
   </div>
 </div>
 
+<!-- STELLAR PASS SCREEN -->
+<div id="passScreen" style="display:none">
+  <div id="passHeader">
+    <button class="screenBack">← Back</button>
+    <div id="passTitle">✦ STELLAR PASS</div>
+    <div id="passGemCount">💎 <span class="gemCount">0</span></div>
+  </div>
+  <div id="passBody">
+    <div id="passBanner">
+      <div id="passBannerTitle">✦ STELLAR PASS ✦</div>
+      <div id="passBannerSub">Earn Pass XP by playing runs · Claim rewards as you level up</div>
+    </div>
+    <div id="passXpBar">
+      <div id="passXpLabel"><span>Pass XP: <strong id="passXpCur">0</strong></span><span id="passXpNext"></span></div>
+      <div id="passXpTrack"><div id="passXpFill" style="width:0%"></div></div>
+    </div>
+    <div id="passTiersGrid"></div>
+    <div id="passFooter">
+      Each run earns Pass XP equal to your score ÷ 10 &nbsp;·&nbsp; All rewards are yours forever<br>
+      🌈 <strong style="animation:chromaticShift 2.5s linear infinite;display:inline-block">Chromatic</strong> — the rarest tier, with shifting rainbow colors
+    </div>
+  </div>
+</div>
+
 <div id="ui">
   <div class="rankLabel" id="rankDisplay" style="color:#A0A0A0">CADET</div>
   <div class="rankBar"><div class="rankFill" id="gameRankFill"></div><div class="rankText" id="gameRankText">0 / 100 XP</div></div>
@@ -526,6 +661,7 @@ const COSMETICS=[
   {id:11,name:"Nebula Wraith",color:"#dd44ff",unlockXp:25000,galaxy:2,powerName:"Dark Pulse",powerDesc:"Every 15 asteroids dodged, your lane erupts — all asteroids in your lane destroyed + gain a shield."},
   {id:12,name:"Void Colossus",color:"#00ffaa",unlockXp:40000,galaxy:2,powerName:"Iron Tide",powerDesc:"Asteroids in adjacent lanes move 25% slower. Gain a shield every 20 asteroids dodged."},
   {id:13,name:"Omega Prime",color:"#ff8800",unlockXp:65000,galaxy:2,powerName:"Cosmic Reckoning",powerDesc:"Press F every 20s: destroy ALL asteroids, freeze 5s, and earn up to 5 💎."},
+  {id:14,name:"Stellar Sovereign",color:"#cc44ff",unlockXp:0,galaxy:3,powerName:"Chromatic Surge",powerDesc:"Every 10 asteroids dodged, a random power activates: shield, freeze, destroy lane, or gem pull. StellarPass exclusive.",stellarPassOnly:true},
 ];
 const RUN_BOOSTS=[
   {id:"hyperdrive",name:"⚡ Hyperdrive",desc:"Move 2× faster between lanes",cost:1},
@@ -554,6 +690,8 @@ const SKINS=[
   {id:11,shipId:11, name:"Toxic Wraith",     color:"#88ff00", rarity:"legendary", cost:4},
   {id:12,shipId:12, name:"Blood Colossus",   color:"#ff2222", rarity:"mythic",    cost:5},
   {id:13,shipId:13, name:"Ice Omega",        color:"#00ddff", rarity:"mythic",    cost:5},
+  {id:14,shipId:0,  name:"Chromatic Viper",  color:"#cc44ff", rarity:"chromatic", cost:0, passOnly:true},
+  {id:15,shipId:7,  name:"Chromatic Phantom",color:"#ff44bb", rarity:"chromatic", cost:0, passOnly:true},
 ];
 
 // THREE.JS
@@ -652,6 +790,11 @@ function applyGalaxyVisuals(g2){
 
 // SHIP MESH
 function getShipColor(id){
+  if(id===14){
+    // Sovereign uses cycling hue at current time
+    const h=(Date.now()*0.0003)%1;
+    const c=new THREE.Color();c.setHSL(h,1,0.65);return '#'+c.getHexString();
+  }
   const equipped=getEquippedSkin(id);
   if(equipped!==null){const sk=SKINS.find(s=>s.id===equipped);if(sk)return sk.color;}
   return COSMETICS[id].color;
@@ -674,6 +817,37 @@ function createShipMesh(id){
   else if(id===11){const hull=new THREE.Mesh(new THREE.ConeGeometry(0.72,5.2,5),makeMat(col,0.7,0.15,0.1));hull.rotation.x=-Math.PI/2;hull.position.z=-0.4;group.add(hull);const gwS=new THREE.Shape();gwS.moveTo(0,0);gwS.lineTo(5.0,0.4);gwS.lineTo(4.5,2.8);gwS.lineTo(2.5,4.5);gwS.lineTo(0.5,3.2);gwS.lineTo(0,1.8);const gwM=new THREE.MeshStandardMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.65),side:THREE.DoubleSide,metalness:0,roughness:0.2,transparent:true,opacity:0.58});[-1,1].forEach(s=>{const gw=new THREE.Mesh(new THREE.ShapeGeometry(gwS),gwM.clone());gw.rotation.x=Math.PI/2;gw.scale.x=s;gw.position.set(s*0.4,-0.1,0.4);group.add(gw);});const sw2S=new THREE.Shape();sw2S.moveTo(0,0);sw2S.lineTo(3.0,0.2);sw2S.lineTo(2.2,2.0);sw2S.lineTo(0.4,2.2);sw2S.lineTo(0,0.9);const sw2M=new THREE.MeshStandardMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col).multiplyScalar(0.5),side:THREE.DoubleSide,metalness:0,roughness:0,transparent:true,opacity:0.42});[-1,1].forEach(s=>{const sw2=new THREE.Mesh(new THREE.ShapeGeometry(sw2S),sw2M.clone());sw2.rotation.x=Math.PI/2;sw2.scale.x=s;sw2.position.set(s*0.42,0.5,-0.3);group.add(sw2);});const vR=new THREE.Mesh(new THREE.TorusGeometry(0.65,0.06,8,20),new THREE.MeshBasicMaterial({color:new THREE.Color(col),transparent:true,opacity:0.88}));vR.rotation.x=Math.PI/2;vR.position.set(0,0.1,-0.6);group.add(vR);const vR2=new THREE.Mesh(new THREE.TorusGeometry(1.1,0.04,6,18),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.3}));vR2.rotation.x=Math.PI/2;vR2.position.set(0,0.1,-0.6);group.add(vR2);const cOrb=new THREE.Mesh(new THREE.SphereGeometry(0.38,10,10),new THREE.MeshStandardMaterial({color:0x110022,emissive:new THREE.Color(col),emissiveIntensity:2.0,metalness:0,roughness:0,transparent:true,opacity:1.0}));cOrb.position.set(0,0.15,-0.5);group.add(cOrb);const orbColors=[col,"#ffffff","#ee88ff"],orbs=[];orbColors.forEach(oc=>{const o=new THREE.Mesh(new THREE.SphereGeometry(0.19,6,6),new THREE.MeshStandardMaterial({color:new THREE.Color(oc),emissive:new THREE.Color(oc),emissiveIntensity:1.8,metalness:0,roughness:0}));group.add(o);orbs.push(o);});group.userData.wraithOrbs=orbs;[-0.6,0.6].forEach(x=>{const st=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.85,0.8),makeMat(col).clone());st.position.set(x,0.1,1.55);group.add(st);});}
   else if(id===12){const hM=makeMat(col,0.45,0.7,0.2);const hull=new THREE.Mesh(new THREE.BoxGeometry(2.3,0.85,4.0),hM);group.add(hull);[-1.85,1.85].forEach(x=>{const p=new THREE.Mesh(new THREE.BoxGeometry(0.75,0.62,2.6),hM.clone());p.position.set(x,0.18,-0.2);group.add(p);});const nose=new THREE.Mesh(new THREE.ConeGeometry(1.18,1.9,4),hM.clone());nose.rotation.x=-Math.PI/2;nose.position.set(0,0,-2.9);group.add(nose);group.add(new THREE.Mesh(new THREE.BoxGeometry(2.3,0.85,0.4),hM.clone())).position.set(0,0,-2.0);const dome=new THREE.Mesh(new THREE.SphereGeometry(0.78,8,6,0,Math.PI*2,0,Math.PI/2),makeMat(col,0.9,0.1,0.05));dome.position.set(0,0.5,-0.5);group.add(dome);[-0.8,0,0.8].forEach(z=>{const rib=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.15,0.15),hM.clone());rib.position.set(0,0.48,z);group.add(rib);});[-0.85,0.85].forEach(x=>{const pod=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.38,1.3,7),hM.clone());pod.rotation.x=Math.PI/2;pod.position.set(x,-0.2,2.1);group.add(pod);const glow=new THREE.Mesh(new THREE.CircleGeometry(0.28,10),new THREE.MeshBasicMaterial({color:new THREE.Color(col),transparent:true,opacity:0.8,side:THREE.DoubleSide}));glow.rotation.y=Math.PI;glow.position.set(x,-0.2,2.75);group.add(glow);});}
   else if(id===13){const oC=new THREE.Color(col);const hull=new THREE.Mesh(new THREE.OctahedronGeometry(1.55,0),makeMat(col,0.6,0.5,0.08));hull.scale.set(0.68,0.45,2.2);hull.position.z=-0.15;group.add(hull);const spear=new THREE.Mesh(new THREE.ConeGeometry(0.28,3.2,5),makeMat(col,1.3,0.3,0.0));spear.rotation.x=-Math.PI/2;spear.position.set(0,0,-2.9);group.add(spear);const owS=new THREE.Shape();owS.moveTo(0,0);owS.lineTo(5.2,-0.4);owS.lineTo(4.8,0.9);owS.lineTo(3.2,2.6);owS.lineTo(1.0,3.0);owS.lineTo(0,1.8);const owM=new THREE.MeshStandardMaterial({color:oC,emissive:oC.clone().multiplyScalar(0.5),side:THREE.DoubleSide,metalness:0.4,roughness:0.1,transparent:true,opacity:0.85});[-1,1].forEach(s=>{const ow=new THREE.Mesh(new THREE.ShapeGeometry(owS),owM.clone());ow.rotation.x=Math.PI/2;ow.scale.x=s;ow.position.set(s*0.65,-0.1,0.2);group.add(ow);});const wsS=new THREE.Shape();wsS.moveTo(0,0);wsS.lineTo(3.2,0.1);wsS.lineTo(2.4,1.6);wsS.lineTo(0.5,1.8);wsS.lineTo(0,0.8);const wsM=new THREE.MeshStandardMaterial({color:0xffffff,emissive:oC,emissiveIntensity:0.6,side:THREE.DoubleSide,transparent:true,opacity:0.45});[-1,1].forEach(s=>{const ws=new THREE.Mesh(new THREE.ShapeGeometry(wsS),wsM.clone());ws.rotation.x=Math.PI/2;ws.scale.x=s;ws.position.set(s*0.66,0.4,-0.2);group.add(ws);});[{r:2.0,t:0.10,p:[0,0.3,-0.6],rx:Math.PI*0.06,rz:0},{r:2.5,t:0.06,p:[0,0.3,-0.2],rx:Math.PI*0.04,rz:Math.PI*0.12},{r:1.6,t:0.07,p:[0,0.3,-1.0],rx:Math.PI*0.10,rz:-Math.PI*0.08}].forEach(({r,t,p,rx,rz})=>{const rm=new THREE.Mesh(new THREE.TorusGeometry(r,t,8,32),new THREE.MeshBasicMaterial({color:new THREE.Color(col),transparent:true,opacity:0.85}));rm.rotation.x=rx;rm.rotation.z=rz;rm.position.set(...p);group.add(rm);});const oOrb=new THREE.Mesh(new THREE.SphereGeometry(0.55,14,14),new THREE.MeshStandardMaterial({color:0xffffff,emissive:oC.clone(),emissiveIntensity:2.8,metalness:0,roughness:0,transparent:true,opacity:1.0}));oOrb.position.set(0,0.2,-0.5);group.add(oOrb);const hot=new THREE.Mesh(new THREE.SphereGeometry(0.22,8,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1.0}));hot.position.set(0,0.2,-0.5);group.add(hot);[-0.75,0.75].forEach(x=>{const tf=new THREE.Mesh(new THREE.BoxGeometry(0.07,1.1,0.9),makeMat(col,0.5,0.5,0.1));tf.position.set(x,0.22,1.6);tf.rotation.z=x>0?-0.15:0.15;group.add(tf);});}
+  else if(id===14){
+    // Stellar Sovereign — chromatic pass ship
+    const sC=new THREE.Color("#cc44ff");const sC2=new THREE.Color("#ff44bb");const sC3=new THREE.Color("#ffcc00");
+    const hull=new THREE.Mesh(new THREE.OctahedronGeometry(1.5,0),makeMat("#cc44ff",0.8,0.1,0.05));
+    hull.scale.set(0.6,0.4,2.3);hull.position.z=-0.2;group.add(hull);
+    const prow=new THREE.Mesh(new THREE.ConeGeometry(0.26,3.0,6),makeMat("#ffffff",1.5,0.0,0.0));
+    prow.rotation.x=-Math.PI/2;prow.position.set(0,0,-2.8);group.add(prow);
+    // Three layered wing shapes in different chromatic colors
+    const wColors=["#ff44bb","#ffcc00","#00ffcc"];
+    const wDefs=[
+      {pts:[[0,0],[5.0,-0.3],[4.5,1.2],[2.8,2.8],[0.8,3.0],[0,1.6]],pos:[0.5,-0.05,0.2]},
+      {pts:[[0,0],[3.5,0.1],[2.8,1.8],[0.6,2.0],[0,1.0]],pos:[0.52,0.4,-0.3]},
+      {pts:[[0,0],[2.2,0.0],[1.6,1.0],[0.3,1.2],[0,0.6]],pos:[0.54,0.8,-0.8]},
+    ];
+    wDefs.forEach(({pts,pos},wi)=>{
+      const sh=new THREE.Shape();sh.moveTo(pts[0][0],pts[0][1]);pts.slice(1).forEach(p=>sh.lineTo(p[0],p[1]));
+      const wm=new THREE.MeshStandardMaterial({color:new THREE.Color(wColors[wi]),emissive:new THREE.Color(wColors[wi]).multiplyScalar(0.6),side:THREE.DoubleSide,transparent:true,opacity:0.72-wi*0.1,metalness:0,roughness:0.1});
+      [-1,1].forEach(s=>{const w=new THREE.Mesh(new THREE.ShapeGeometry(sh),wm.clone());w.rotation.x=Math.PI/2;w.scale.x=s;w.position.set(s*pos[0],pos[1],pos[2]);group.add(w);});
+    });
+    // Triple rings
+    [{r:2.2,t:0.1,c:"#cc44ff"},{r:2.8,t:0.06,c:"#ff44bb"},{r:1.6,t:0.07,c:"#ffcc00"}].forEach(({r,t,c},ri)=>{
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(r,t,8,32),new THREE.MeshBasicMaterial({color:new THREE.Color(c),transparent:true,opacity:0.88-ri*0.1}));
+      ring.rotation.x=Math.PI*(0.06+ri*0.04);ring.rotation.z=Math.PI*(ri*0.08);ring.position.set(0,0.3,-0.5);group.add(ring);
+    });
+    // Core orb — white hot center
+    const sovOrb=new THREE.Mesh(new THREE.SphereGeometry(0.6,14,14),new THREE.MeshStandardMaterial({color:0xffffff,emissive:new THREE.Color("#cc44ff"),emissiveIntensity:3.0,metalness:0,roughness:0,transparent:true,opacity:1.0}));
+    sovOrb.position.set(0,0.2,-0.5);group.add(sovOrb);
+    const hotCore=new THREE.Mesh(new THREE.SphereGeometry(0.25,8,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1.0}));
+    hotCore.position.set(0,0.2,-0.5);group.add(hotCore);
+    [-0.8,0.8].forEach(x=>{const tf=new THREE.Mesh(new THREE.BoxGeometry(0.07,1.2,1.0),makeMat("#cc44ff",0.7,0.1,0.1));tf.position.set(x,0.22,1.65);tf.rotation.z=x>0?-0.12:0.12;group.add(tf);});
+  }
   // Engine nozzle
   const nozzle=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.5,0.4,7),new THREE.MeshStandardMaterial({color:0x222244,emissive:new THREE.Color(col).multiplyScalar(0.5),metalness:0.8,roughness:0.2}));
   nozzle.rotation.x=Math.PI/2;nozzle.position.set(0,0,1.5);group.add(nozzle);
@@ -756,7 +930,9 @@ function isAeon(){return chosenCosmetic===10;}
 function isWraith(){return chosenCosmetic===11;}
 function isColossus(){return chosenCosmetic===12;}
 function isOmega(){return chosenCosmetic===13;}
-function isGalaxy2(){return chosenCosmetic>=11;}
+function isSovereign(){return chosenCosmetic===14;}
+function isGalaxy2(){return chosenCosmetic>=11&&chosenCosmetic<=13;}
+let chromaticSurgeCounter=0;
 function hasRunBoost(id){return activeRunBoosts.includes(id);}
 function getPowerActive(name){return COSMETICS[chosenCosmetic].powerName===name;}
 function isBoosted(id){return boostedShips.includes(id);}
@@ -873,6 +1049,8 @@ const svgByShipList=[
   `<svg viewBox="-28 -44 56 90" width="60" height="60"><polygon points="0,-2 -28,32 -14,42 -4,22" fill="#dd44ff" opacity="0.62"/><polygon points="0,-2 28,32 14,42 4,22" fill="#dd44ff" opacity="0.62"/><polygon points="0,-42 -7,18 0,30 7,18" fill="#dd44ff" opacity="0.95"/></svg>`,
   `<svg viewBox="-30 -38 60 82" width="60" height="60"><rect x="-14" y="-20" width="28" height="46" fill="#00ffaa" opacity="0.9" rx="3"/><polygon points="0,-38 -12,-20 12,-20" fill="#00ffaa"/><rect x="-30" y="-6" width="10" height="28" fill="#00cc88" opacity="0.85" rx="2"/><rect x="20" y="-6" width="10" height="28" fill="#00cc88" opacity="0.85" rx="2"/></svg>`,
   `<svg viewBox="-28 -46 56 94" width="60" height="60"><defs><radialGradient id="og13b" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="60%" stop-color="#ff8800" stop-opacity="0.7"/><stop offset="100%" stop-color="#ff8800" stop-opacity="0.1"/></radialGradient></defs><polygon points="-8,4 -28,30 -10,42 -2,20" fill="#ff8800" opacity="0.82"/><polygon points="8,4 28,30 10,42 2,20" fill="#ff8800" opacity="0.82"/><polygon points="0,-44 -10,16 0,28 10,16" fill="#ff8800" opacity="0.92"/><circle cx="0" cy="-10" r="11" fill="url(#og13b)"/><circle cx="0" cy="-10" r="4.5" fill="#ffffff" opacity="1"/></svg>`,
+  // Stellar Sovereign (id 14) — chromatic ship
+  `<svg viewBox="-30 -44 60 92" width="60" height="60"><defs><radialGradient id="sov14" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="40%" stop-color="#cc44ff" stop-opacity="0.8"/><stop offset="100%" stop-color="#ff44bb" stop-opacity="0.1"/></radialGradient></defs><polygon points="0,-42 -9,12 0,26 9,12" fill="#cc44ff" opacity="0.95"/><polygon points="-9,4 -30,28 -12,38 -2,18" fill="#ff44bb" opacity="0.78"/><polygon points="9,4 30,28 12,38 2,18" fill="#ff44bb" opacity="0.78"/><polygon points="-9,0 -22,20 -6,24" fill="#ffcc00" opacity="0.55"/><polygon points="9,0 22,20 6,24" fill="#ffcc00" opacity="0.55"/><ellipse cx="0" cy="-16" rx="19" ry="5" fill="none" stroke="#cc44ff" stroke-width="2" opacity="0.95"/><ellipse cx="0" cy="-16" rx="25" ry="7" fill="none" stroke="#ff44bb" stroke-width="1" opacity="0.5"/><circle cx="0" cy="-8" r="10" fill="url(#sov14)"/><circle cx="0" cy="-8" r="4" fill="#ffffff" opacity="1"/></svg>`,
 ];
 
 // HANGAR 3D PREVIEW
@@ -922,7 +1100,7 @@ function buildHangarList(){
   });
 }
 function showHangarDetail(id){
-  const sc=COSMETICS[id],g2=sc.galaxy===2,unlocked=xp>=sc.unlockXp;
+  const sc=COSMETICS[id],g2=sc.galaxy===2,unlocked=isShipUnlocked(id);
   document.getElementById("hdName").innerText=sc.name;document.getElementById("hdName").style.color=g2?"#ff88ff":"#fff";
   const gEl=document.getElementById("hdGalaxy");if(g2){gEl.innerText="🌌 NEBULA RIFT GALAXY";gEl.style.color="#dd44ff";}else{gEl.innerText="Galaxy 1";gEl.style.color="#336";}
   document.getElementById("hdPower").innerText=sc.powerName;document.getElementById("hdPower").style.color=g2?"#ff88ff":"#00ffcc";
@@ -940,15 +1118,14 @@ function showHangarDetail(id){
     const isEquipped=equippedSkins[id]===mySkin.id;
     if(isEquipped){skinHtml=`<div style="font-size:11px;background:#071409;border:1px solid #00ff8844;border-radius:6px;padding:5px 10px;margin-bottom:6px;color:#00ff88;text-align:center">🎨 Skin: <strong>${mySkin.name}</strong> &nbsp;<button onclick="unequipSkin(${id})" style="font-size:10px;background:#2a0808;border:1px solid #ff4444aa;color:#ff6666;border-radius:4px;padding:1px 7px;cursor:pointer">Remove</button></div>`;}
     else if(isOwned){skinHtml=`<div style="font-size:11px;background:#070f18;border:1px solid #44aa6644;border-radius:6px;padding:5px 10px;margin-bottom:6px;color:#88ffaa;text-align:center">🎨 Own: <strong>${mySkin.name}</strong> &nbsp;<button onclick="equipSkin(${id},${mySkin.id})" style="font-size:10px;background:linear-gradient(135deg,#003311,#004d1a);border:1px solid #00cc44;color:#00ff66;border-radius:4px;padding:1px 7px;cursor:pointer">Equip</button></div>`;}
-    else{skinHtml=`<div style="font-size:11px;color:#445;text-align:center;margin-bottom:6px">🎨 Skin: <em>${mySkin.name}</em> available in Shop (${mySkin.cost}💎)</div>`;}
+    else{skinHtml="";}
   }
-  // Insert skin info before the select button
+  // Update skin info in the dedicated placeholder — no duplicate accumulation
+  document.getElementById("hdSkinInfo").innerHTML=skinHtml;
   const selBtn=document.getElementById("hdSelectBtn");
   if(!unlocked){selBtn.innerText="🔒 Locked";selBtn.className="";selBtn.disabled=true;}
   else if(id===chosenCosmetic){selBtn.innerText="✓ Selected";selBtn.className="isSelected";selBtn.disabled=true;}
   else{selBtn.innerText="✓ Select Ship";selBtn.className="";selBtn.disabled=false;}
-  // Inject skin info HTML right before the button
-  selBtn.insertAdjacentHTML('beforebegin',skinHtml);
   selBtn.onclick=()=>{if(!unlocked||id===chosenCosmetic)return;chosenCosmetic=id;saveProgress();buildHangarList();showHangarDetail(id);updateHomeShipCard();showToast("Ship selected: "+sc.name,1500);};
 }
 function drawHomeCosmetics(){}
@@ -972,7 +1149,7 @@ function clearGameObjects(){
 }
 
 // SCREEN NAVIGATION
-const ALL_SCREENS=['homeMain','hangarScreen','boostsScreen','questsScreen','shopScreen'];
+const ALL_SCREENS=['homeMain','hangarScreen','boostsScreen','questsScreen','shopScreen','passScreen'];
 function showScreen(id){
   ALL_SCREENS.forEach(s=>{const el=document.getElementById(s);el.style.display='none';});
   const el=document.getElementById(id);
@@ -981,6 +1158,7 @@ function showScreen(id){
   if(id==='boostsScreen')renderBoostsTab();
   if(id==='questsScreen')renderQuestsTab();
   if(id==='shopScreen')renderShop();
+  if(id==='passScreen')renderPass();
 }
 
 function showHomescreen(){
@@ -1019,12 +1197,24 @@ function resetGame(){
   baseSpeed=4;score=0;boostKey=false;difficultyTimer=0;shieldActive=false;xpPassiveTimer=0;gameOver=false;
   dodgedCount=0;legendRevives=0;frozenFrames=0;godlyCooldown=0;questRunScore=0;
   laserShots=0;laserFrames3D=0;laserLane3D=0;seraphWingGlow=0;seraphSoulBurstFlashFrames=0;
-  singularityTimer=0;chronosTimer=0;chronosPhased=false;darkPulseCounter=0;gemSpawnTimer=0;
+  singularityTimer=0;chronosTimer=0;chronosPhased=false;darkPulseCounter=0;gemSpawnTimer=0;chromaticSurgeCounter=0;
   loadProgress();
   const g2=isGalaxy2();applyGalaxyVisuals(g2);
-  document.getElementById("galaxyHUD").style.display=g2?"block":"none";
+  const hudEl=document.getElementById("galaxyHUD");
+  if(isSovereign()){hudEl.style.display="block";hudEl.style.animation="chromaticShift 2.5s linear infinite";hudEl.innerText="✦ STELLAR SOVEREIGN";}
+  else{hudEl.style.animation="";hudEl.style.color="#ee88ff";hudEl.innerText="🌌 NEBULA RIFT";hudEl.style.display=g2?"block":"none";}
   const boostedCadet=(chosenCosmetic===0&&isBoosted(0));startShieldActive=boostedCadet;startShieldFrames=boostedCadet?600:0;
   if(hasRunBoost("iron_shell"))shieldActive=true;
+  // Also consume any free pass boosts
+  const freeBoosts=JSON.parse(localStorage.getItem("sd2_free_boosts")||"[]");
+  if(freeBoosts.length>0){
+    const used=freeBoosts.shift();
+    localStorage.setItem("sd2_free_boosts",JSON.stringify(freeBoosts));
+    if(used==="iron_shell")shieldActive=true;
+    else if(used==="xp_surge"&&!activeRunBoosts.includes("xp_surge"))activeRunBoosts.push("xp_surge");
+    else if(used==="null_field"&&!activeRunBoosts.includes("null_field"))activeRunBoosts.push("null_field");
+    showToast(`✦ Pass reward applied: ${RUN_BOOSTS.find(b=>b.id===used)?.name||used}`,1800);
+  }
   ship.moveSpeed=hasRunBoost("hyperdrive")?.22:.11;
   laserShots=hasRunBoost("laser_shot")?3:0;
   activeRunBoosts=[];saveProgress();
@@ -1044,6 +1234,7 @@ function resetGame(){
   shipGroup=createShipMesh(chosenCosmetic);shipGroup.position.set(LANES_3D[1],0,0);scene.add(shipGroup);
   shieldMesh=createShieldMesh();shieldMesh.position.set(LANES_3D[1],0,0);scene.add(shieldMesh);
   engineLight.color.set(COSMETICS[chosenCosmetic].color);
+  if(isSovereign())engineLight.color.setHSL(0.8,1,0.6);
   if(isPhantomatic())voidLight.color.set(0xff44ff);if(isSeraph())soulLight.color.set(0xfffacd);
   if(isHarbinger())singLight.color.set(0xff3333);if(isAeon())chronosLight.color.set(0x8888ff);
   if(isWraith())voidLight.color.set(0xdd44ff);if(isOmega())singLight.color.set(0xff8800);
@@ -1085,6 +1276,19 @@ function updateAsteroids3D(speed3D){
         if(isSeraph()&&dodgedCount>0&&dodgedCount%getSoulBurstEvery()===0)triggerSoulBurst();
         if(isSeraph()){const rem=getSoulBurstEvery()-(dodgedCount%getSoulBurstEvery());document.getElementById("soulBurstCount").innerText=rem===getSoulBurstEvery()?getSoulBurstEvery():rem;}
         if(isWraith()){darkPulseCounter++;const dpE=getDarkPulseEvery();document.getElementById("darkPulseCount").innerText=dpE-(darkPulseCounter%dpE);if(darkPulseCounter%dpE===0)triggerDarkPulse();}
+        // Chromatic Surge — Stellar Sovereign
+        if(isSovereign()){
+          chromaticSurgeCounter++;
+          if(chromaticSurgeCounter%10===0){
+            const surge=Math.floor(Math.random()*4);
+            if(surge===0){shieldActive=true;showToast("✦ Chromatic Surge: SHIELD!",1400);}
+            else if(surge===1){frozenFrames=120;showToast("✦ Chromatic Surge: FREEZE!",1400);}
+            else if(surge===2){const px=ship.x;for(let i=asteroids.length-1;i>=0;i--){if(Math.abs(asteroids[i].x-px)<1){spawnParticles3D(asteroids[i].x,0,asteroids[i].z,5);scene.remove(asteroids[i].mesh);asteroids.splice(i,1);}}showToast("✦ Chromatic Surge: LANE CLEAR!",1400);}
+            else{const tx=LANES_3D[ship.lane];gemObjects.forEach(g=>{g.mesh.position.x=tx;g.lane=ship.lane;});showToast("✦ Chromatic Surge: GEM PULL!",1400);}
+            singLight.color.setHSL(Math.random(),1,0.5);singLight.intensity=14;
+            doScreenFlash("radial-gradient(ellipse at center,rgba(200,100,255,0.6) 0%,rgba(255,100,200,0.3) 50%,transparent 100%)",400);
+          }
+        }
       }
       continue;
     }
@@ -1098,6 +1302,7 @@ function updateAsteroids3D(speed3D){
       spawnParticles3D(ship.x,0,0,25);gameOver=true;
       document.getElementById("gameOver").style.display="block";document.getElementById("returnHomeBtn").style.display="inline-block";
       checkQuestsAfterRun();
+      addPassXp(Math.floor(questRunScore/10));
     }
   }
   if(frozenFrames>0)frozenFrames--;if(startShieldActive&&startShieldFrames>0){startShieldFrames--;if(!startShieldFrames)startShieldActive=false;}
@@ -1115,6 +1320,28 @@ function updateShip3D(){
     if(isWraith()){(shipGroup.userData.wraithOrbs||[]).forEach((o,i)=>{const t=Date.now()*0.002+i*(Math.PI*2/3);o.position.set(Math.cos(t)*1.6,Math.sin(t*0.7)*0.4+0.2,Math.sin(t)*0.8-0.5);});voidLight.position.set(ship.x,0,0);voidLight.intensity=Math.max(0,voidLight.intensity*0.92);}
     if(isColossus()){singLight.color.set(0x00ffaa);singLight.position.set(ship.x,0,0);singLight.intensity=Math.max(0,singLight.intensity*0.95);}
     if(isOmega()){let ri=0;shipGroup.children.forEach(c=>{if(c.geometry&&c.geometry.type==="TorusGeometry"){c.rotation.z+=ri===0?0.025:ri===1?-0.018:0.012;ri++;}});singLight.color.set(0xff8800);singLight.position.set(ship.x,0,0);singLight.intensity=Math.max(0,singLight.intensity*0.92);}
+    if(isSovereign()){
+      // Cycle ring colors chromatically
+      const t=Date.now()*0.001;
+      let ri=0;
+      shipGroup.children.forEach(c=>{
+        if(c.geometry&&c.geometry.type==="TorusGeometry"){
+          const h=(t*0.3+ri*0.33)%1;
+          c.material.color.setHSL(h,1,0.6);
+          c.rotation.z+=ri===0?0.028:ri===1?-0.02:0.014;
+          ri++;
+        }
+      });
+      // Pulse core orb color
+      shipGroup.children.forEach(c=>{
+        if(c.geometry&&c.geometry.type==="SphereGeometry"&&c.material.emissiveIntensity>1){
+          const h2=(t*0.4)%1;c.material.emissive.setHSL(h2,1,0.5);
+        }
+      });
+      singLight.color.setHSL((t*0.3)%1,1,0.5);
+      singLight.position.set(ship.x,0,0);
+      singLight.intensity=2.5+Math.sin(t*2)*1;
+    }
   }
   const shieldOn=(chosenCosmetic===0&&isBoosted(0)&&startShieldActive)||shieldActive;
   if(shieldMesh){shieldMesh.position.x=ship.x;shieldMesh.position.y=shipGroup?shipGroup.position.y:0;shieldMesh.visible=shieldOn;if(shieldOn){shieldMesh.rotation.y+=0.02;shieldMesh.rotation.x+=0.01;}}
@@ -1153,8 +1380,142 @@ function update(){
 document.getElementById("startBtn").onclick=()=>{hideHomescreen();resetGame();animationFrameId=requestAnimationFrame(update);};
 document.getElementById("navHangar").onclick=()=>showScreen('hangarScreen');
 document.getElementById("navBoosts").onclick=()=>showScreen('boostsScreen');
-document.getElementById("navShop").onclick=()=>showScreen('shopScreen');
 document.getElementById("navQuests").onclick=()=>showScreen('questsScreen');
+document.getElementById("navPass").onclick=()=>showScreen('passScreen');
+document.getElementById("navShop").onclick=()=>showScreen('shopScreen');
+
+// ══════════════════════════════════════════════════════════
+// STELLAR PASS SYSTEM
+// ══════════════════════════════════════════════════════════
+const PASS_TIERS = [
+  {tier:1,  xpRequired:50,   reward:{type:"gems",   amount:1,     label:"💎 1 Gem",             desc:"A free gem, just for playing!"}},
+  {tier:2,  xpRequired:150,  reward:{type:"boost",  id:"iron_shell",label:"🛡️ Iron Shell Boost", desc:"Start your next run with a shield"}},
+  {tier:3,  xpRequired:300,  reward:{type:"gems",   amount:2,     label:"💎 2 Gems",            desc:"Keep it up!"}},
+  {tier:4,  xpRequired:500,  reward:{type:"skin",   skinId:14,    label:"🌈 Chromatic Viper",   desc:"Chromatic skin for Cadet Viper"}},
+  {tier:5,  xpRequired:800,  reward:{type:"boost",  id:"xp_surge", label:"✨ XP Surge Boost",   desc:"3× XP for one full run"}},
+  {tier:6,  xpRequired:1200, reward:{type:"gems",   amount:3,     label:"💎 3 Gems",            desc:"You're halfway there!"}},
+  {tier:7,  xpRequired:1800, reward:{type:"boost",  id:"null_field",label:"❄️ Null Field Boost", desc:"Asteroids 35% slower for one run"}},
+  {tier:8,  xpRequired:2600, reward:{type:"skin",   skinId:15,    label:"🌈 Chromatic Phantom",  desc:"Chromatic skin for Mythic Phantom"}},
+  {tier:9,  xpRequired:3600, reward:{type:"gems",   amount:5,     label:"💎 5 Gems",            desc:"Almost at the top!"}},
+  {tier:10, xpRequired:5000, reward:{type:"ship",   shipId:14,    label:"✦ Stellar Sovereign",  desc:"The exclusive Chromatic ship with Chromatic Surge power"}},
+];
+
+function loadPassState(){try{return JSON.parse(localStorage.getItem("sd2_pass")||"null");}catch(e){return null;}}
+function savePassState(s){localStorage.setItem("sd2_pass",JSON.stringify(s));}
+function getOrCreatePassState(){
+  let s=loadPassState();
+  if(!s)s={passXp:0,claimed:[]};
+  return s;
+}
+function addPassXp(amount){
+  if(amount<=0)return;
+  const s=getOrCreatePassState();
+  s.passXp+=amount;
+  savePassState(s);
+  // Check if any tier just unlocked
+  const justUnlocked=PASS_TIERS.filter(t=>!s.claimed.includes(t.tier)&&s.passXp>=t.xpRequired);
+  if(justUnlocked.length>0)showToast(`✦ StellarPass tier ${justUnlocked[justUnlocked.length-1].tier} unlocked! Claim your reward!`,2800);
+  if(document.getElementById("passScreen").style.display!=="none")renderPass();
+}
+function claimPassTier(tier){
+  const s=getOrCreatePassState();
+  if(s.claimed.includes(tier))return;
+  const def=PASS_TIERS.find(t=>t.tier===tier);
+  if(!def||s.passXp<def.xpRequired)return;
+  s.claimed.push(tier);savePassState(s);
+  const r=def.reward;
+  if(r.type==="gems"){gems+=r.amount;saveProgress();updateAllRankUi();showToast(`✦ Claimed: ${r.label}!`,1800);}
+  else if(r.type==="boost"){
+    // Give a free run boost charge stored separately
+    const freeBoosts=JSON.parse(localStorage.getItem("sd2_free_boosts")||"[]");
+    freeBoosts.push(r.id);localStorage.setItem("sd2_free_boosts",JSON.stringify(freeBoosts));
+    showToast(`✦ Claimed: ${r.label}! (auto-applied next run)`,2200);
+  }
+  else if(r.type==="skin"){
+    const owned=loadOwnedSkins();
+    if(!owned.includes(r.skinId)){owned.push(r.skinId);saveOwnedSkins(owned);}
+    showToast(`✦ Claimed: ${r.label}! (equip it in Shop or Hangar)`,2500);
+  }
+  else if(r.type==="ship"){
+    // Unlock the sovereign ship by storing it
+    const unlockedPassShips=JSON.parse(localStorage.getItem("sd2_pass_ships")||"[]");
+    if(!unlockedPassShips.includes(r.shipId)){unlockedPassShips.push(r.shipId);localStorage.setItem("sd2_pass_ships",JSON.stringify(unlockedPassShips));}
+    showToast(`✦ CLAIMED: ✦ STELLAR SOVEREIGN ✦ — the Chromatic ship is yours!`,3500);
+  }
+  renderPass();updateAllRankUi();
+  if(document.getElementById("hangarScreen").style.display!=="none")refreshHangar();
+}
+function isPassShipUnlocked(shipId){
+  if(shipId!==14)return false;
+  try{return JSON.parse(localStorage.getItem("sd2_pass_ships")||"[]").includes(shipId);}catch(e){return false;}
+}
+// Override COSMETICS unlock check for pass ship
+const _origIsUnlocked=id=>xp>=COSMETICS[id].unlockXp;
+function isShipUnlocked(id){if(COSMETICS[id].stellarPassOnly)return isPassShipUnlocked(id);return xp>=COSMETICS[id].unlockXp;}
+
+function renderPass(){
+  const s=getOrCreatePassState();
+  // XP bar
+  const maxXp=PASS_TIERS[PASS_TIERS.length-1].xpRequired;
+  const pct=Math.min(100,(s.passXp/maxXp)*100);
+  document.getElementById("passXpCur").innerText=s.passXp.toLocaleString();
+  const nextTier=PASS_TIERS.find(t=>s.passXp<t.xpRequired);
+  document.getElementById("passXpNext").innerText=nextTier?`Next tier: ${nextTier.xpRequired.toLocaleString()} XP`:"MAX — all tiers reached!";
+  document.getElementById("passXpFill").style.width=pct+"%";
+  // Tiers
+  const grid=document.getElementById("passTiersGrid");grid.innerHTML="";
+  PASS_TIERS.forEach(def=>{
+    const unlocked=s.passXp>=def.xpRequired;
+    const claimed=s.claimed.includes(def.tier);
+    const available=unlocked&&!claimed;
+    const r=def.reward;
+    const isChromatic=r.type==="skin"||r.type==="ship";
+    const card=document.createElement("div");
+    card.className="passTier "+(claimed?"tier-claimed":available?"tier-available":unlocked?"tier-unlocked":"tier-locked");
+    let rewardIcon="";
+    if(r.type==="gems")rewardIcon="💎";
+    else if(r.type==="boost")rewardIcon="⚡";
+    else if(r.type==="skin")rewardIcon="🌈";
+    else if(r.type==="ship")rewardIcon="✦";
+    let actionHtml="";
+    if(claimed)actionHtml=`<span class="tierClaimedBadge">✓ Claimed</span>`;
+    else if(available)actionHtml=`<button class="tierClaimBtn" onclick="claimPassTier(${def.tier})">Claim!</button>`;
+    else actionHtml=`<span class="tierLockedBadge">🔒</span>`;
+    const rewardNameStyle=isChromatic?`style="animation:chromaticShift 2.5s linear infinite;display:inline-block"`:"";
+    card.innerHTML=`
+      <div class="tierNum">${def.tier}</div>
+      <div class="tierReward">
+        <div class="tierRewardName" ${rewardNameStyle}>${rewardIcon} ${r.label}</div>
+        <div class="tierRewardDesc">${r.desc}</div>
+      </div>
+      <div class="tierXpReq">${claimed?"":s.passXp>=def.xpRequired?"Ready!":def.xpRequired.toLocaleString()+" XP"}</div>
+      ${actionHtml}`;
+    grid.appendChild(card);
+  });
+}
+
+// Patch saveProgress / loadProgress to handle pass ship unlock check
+const _origBuildHangarList=buildHangarList;
+buildHangarList=function(){
+  const list=document.getElementById("hangarList");list.innerHTML="";
+  const g2Unlocked=xp>=20000;
+  COSMETICS.forEach(sc=>{
+    const g2=sc.galaxy===2;
+    const isPassShip=sc.stellarPassOnly;
+    if(g2&&!g2Unlocked&&!isPassShip)return;
+    if(isPassShip&&!isPassShipUnlocked(sc.id))return; // hide if not earned yet (or show locked)
+    if(sc.id===11){const sep=document.createElement("div");sep.className="hListSep";sep.innerText="🌌 G2";list.appendChild(sep);}
+    if(isPassShip){const sep=document.createElement("div");sep.className="hListSep";sep.style.color="#cc44ff";sep.style.borderTopColor="#330044";sep.innerText="✦ PASS";list.appendChild(sep);}
+    const unlocked=isShipUnlocked(sc.id);
+    const div=document.createElement("div");
+    div.className="hListItem"+(sc.id===hangarSelectedId?" selected":"")+(g2||isPassShip?" g2item":"")+(unlocked?"":" locked");
+    div.innerHTML=`<div>${svgByShipList[sc.id]||""}</div><div class="hListItemName">${sc.name}</div>`;
+    if(isBoosted(sc.id)){const b=document.createElement("span");b.className="hListBoostBadge";b.innerText="⚡";div.appendChild(b);}
+    if((g2||isPassShip)&&unlocked){const b2=document.createElement("span");b2.className="hListG2Badge";b2.innerText=isPassShip?"✦":"G2";if(isPassShip){b2.style.background="linear-gradient(135deg,#6600cc,#ff44bb)";b2.style.animation="chromaticShift 2.5s linear infinite";}div.appendChild(b2);}
+    div.onclick=()=>{if(!unlocked)return;hangarSelectedId=sc.id;buildHangarList();showHangarDetail(sc.id);loadPreviewShip(sc.id);};
+    list.appendChild(div);
+  });
+};
 document.getElementById("hangarBack").onclick=()=>{stopPreviewScene();showScreen('homeMain');updateHomeShipCard();};
 document.querySelectorAll(".screenBack").forEach(btn=>btn.onclick=()=>showScreen('homeMain'));
 document.getElementById("boosterBtn").onclick=function(){const r=runBoosterLogic();if(r!==undefined){buildHangarList();showHangarDetail(hangarSelectedId);updateHomeShipCard();}};
