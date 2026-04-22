@@ -315,6 +315,8 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 .hListItem.g2item{border-color:rgba(221,68,255,.1)}
 .hListItem.g2item.selected{background:rgba(221,68,255,.12);border-color:#dd44ff88}
 .hListItem.locked{opacity:.35;cursor:default}
+.hListItem.pass-item{border-color:rgba(180,50,255,.15);}
+.hListItem.pass-item.selected{animation:chromaticBorder 2.5s linear infinite;background:rgba(180,50,255,.1);}
 .hListItemName{font-size:8px;color:#aaa;margin-top:3px;text-align:center;line-height:1.2}
 .hListBoostBadge{position:absolute;top:2px;right:3px;background:#0ff;color:#111;font-size:7px;font-weight:bold;border-radius:3px;padding:1px 3px}
 .hListG2Badge{position:absolute;top:2px;left:3px;background:#dd44ff;color:#fff;font-size:7px;font-weight:bold;border-radius:3px;padding:1px 3px}
@@ -661,7 +663,7 @@ const COSMETICS=[
   {id:11,name:"Nebula Wraith",color:"#dd44ff",unlockXp:25000,galaxy:2,powerName:"Dark Pulse",powerDesc:"Every 15 asteroids dodged, your lane erupts — all asteroids in your lane destroyed + gain a shield."},
   {id:12,name:"Void Colossus",color:"#00ffaa",unlockXp:40000,galaxy:2,powerName:"Iron Tide",powerDesc:"Asteroids in adjacent lanes move 25% slower. Gain a shield every 20 asteroids dodged."},
   {id:13,name:"Omega Prime",color:"#ff8800",unlockXp:65000,galaxy:2,powerName:"Cosmic Reckoning",powerDesc:"Press F every 20s: destroy ALL asteroids, freeze 5s, and earn up to 5 💎."},
-  {id:14,name:"Stellar Sovereign",color:"#cc44ff",unlockXp:0,galaxy:3,powerName:"Chromatic Surge",powerDesc:"Every 10 asteroids dodged, a random power activates: shield, freeze, destroy lane, or gem pull. StellarPass exclusive.",stellarPassOnly:true},
+  {id:14,name:"Stellar Sovereign",color:"#cc44ff",unlockXp:0,galaxy:0,powerName:"Chromatic Surge",powerDesc:"Every 10 asteroids dodged, a random power activates: shield, freeze, destroy lane, or gem pull. StellarPass exclusive.",stellarPassOnly:true},
 ];
 const RUN_BOOSTS=[
   {id:"hyperdrive",name:"⚡ Hyperdrive",desc:"Move 2× faster between lanes",cost:1},
@@ -1070,6 +1072,7 @@ function loadPreviewShip(id){
   if(!previewScene)initPreviewScene();
   if(previewShipGroup){previewScene.remove(previewShipGroup);previewShipGroup=null;}
   if(COSMETICS[id].galaxy===2){previewScene.background.set(0x0d0020);const pl=new THREE.PointLight(0xdd44ff,1.5,18);pl.position.set(0,3,0);previewScene.add(pl);}
+  else if(COSMETICS[id].stellarPassOnly){previewScene.background.set(0x08020f);const pl=new THREE.PointLight(0xcc44ff,1.8,18);pl.position.set(0,3,0);previewScene.add(pl);}
   else previewScene.background.set(0x040c1e);
   previewShipGroup=createShipMesh(id);previewShipGroup.rotation.x=0.18;previewScene.add(previewShipGroup);startPreviewAnim();
 }
@@ -1100,9 +1103,12 @@ function buildHangarList(){
   });
 }
 function showHangarDetail(id){
-  const sc=COSMETICS[id],g2=sc.galaxy===2,unlocked=isShipUnlocked(id);
-  document.getElementById("hdName").innerText=sc.name;document.getElementById("hdName").style.color=g2?"#ff88ff":"#fff";
-  const gEl=document.getElementById("hdGalaxy");if(g2){gEl.innerText="🌌 NEBULA RIFT GALAXY";gEl.style.color="#dd44ff";}else{gEl.innerText="Galaxy 1";gEl.style.color="#336";}
+  const sc=COSMETICS[id],isPassShip=sc.stellarPassOnly,g2=sc.galaxy===2,unlocked=isShipUnlocked(id);
+  document.getElementById("hdName").innerText=sc.name;document.getElementById("hdName").style.color=isPassShip?"#cc44ff":g2?"#ff88ff":"#fff";
+  const gEl=document.getElementById("hdGalaxy");
+  if(isPassShip){gEl.innerHTML=`<span style="animation:chromaticShift 2.5s linear infinite;display:inline-block;font-weight:bold">✦ STELLAR PASS EXCLUSIVE</span>`;gEl.style.color="";}
+  else if(g2){gEl.innerText="🌌 NEBULA RIFT GALAXY";gEl.style.color="#dd44ff";}
+  else{gEl.innerText="";}
   document.getElementById("hdPower").innerText=sc.powerName;document.getElementById("hdPower").style.color=g2?"#ff88ff":"#00ffcc";
   document.getElementById("hdPowerDesc").innerText=sc.powerDesc;
   const uEl=document.getElementById("hdUnlock");
@@ -1201,8 +1207,8 @@ function resetGame(){
   loadProgress();
   const g2=isGalaxy2();applyGalaxyVisuals(g2);
   const hudEl=document.getElementById("galaxyHUD");
-  if(isSovereign()){hudEl.style.display="block";hudEl.style.animation="chromaticShift 2.5s linear infinite";hudEl.innerText="✦ STELLAR SOVEREIGN";}
-  else{hudEl.style.animation="";hudEl.style.color="#ee88ff";hudEl.innerText="🌌 NEBULA RIFT";hudEl.style.display=g2?"block":"none";}
+  hudEl.style.animation="";hudEl.style.color="#ee88ff";hudEl.innerText="🌌 NEBULA RIFT";
+  hudEl.style.display=g2?"block":"none";
   const boostedCadet=(chosenCosmetic===0&&isBoosted(0));startShieldActive=boostedCadet;startShieldFrames=boostedCadet?600:0;
   if(hasRunBoost("iron_shell"))shieldActive=true;
   // Also consume any free pass boosts
@@ -1503,15 +1509,18 @@ buildHangarList=function(){
     const g2=sc.galaxy===2;
     const isPassShip=sc.stellarPassOnly;
     if(g2&&!g2Unlocked&&!isPassShip)return;
-    if(isPassShip&&!isPassShipUnlocked(sc.id))return; // hide if not earned yet (or show locked)
+    if(isPassShip&&!isPassShipUnlocked(sc.id))return;
     if(sc.id===11){const sep=document.createElement("div");sep.className="hListSep";sep.innerText="🌌 G2";list.appendChild(sep);}
-    if(isPassShip){const sep=document.createElement("div");sep.className="hListSep";sep.style.color="#cc44ff";sep.style.borderTopColor="#330044";sep.innerText="✦ PASS";list.appendChild(sep);}
+    if(isPassShip){const sep=document.createElement("div");sep.className="hListSep";sep.style.color="#cc44ff";sep.style.borderTopColor="#330044";sep.style.animation="chromaticShift 2.5s linear infinite";sep.innerText="✦ PASS";list.appendChild(sep);}
     const unlocked=isShipUnlocked(sc.id);
     const div=document.createElement("div");
-    div.className="hListItem"+(sc.id===hangarSelectedId?" selected":"")+(g2||isPassShip?" g2item":"")+(unlocked?"":" locked");
+    // Pass ship gets its own chromatic style, not g2item
+    div.className="hListItem"+(sc.id===hangarSelectedId?" selected":"")+(g2&&!isPassShip?" g2item":"")+(isPassShip?" pass-item":"")+(unlocked?"":" locked");
     div.innerHTML=`<div>${svgByShipList[sc.id]||""}</div><div class="hListItemName">${sc.name}</div>`;
     if(isBoosted(sc.id)){const b=document.createElement("span");b.className="hListBoostBadge";b.innerText="⚡";div.appendChild(b);}
-    if((g2||isPassShip)&&unlocked){const b2=document.createElement("span");b2.className="hListG2Badge";b2.innerText=isPassShip?"✦":"G2";if(isPassShip){b2.style.background="linear-gradient(135deg,#6600cc,#ff44bb)";b2.style.animation="chromaticShift 2.5s linear infinite";}div.appendChild(b2);}
+    // G2 badge for galaxy-2 ships only, ✦ badge for pass ship only
+    if(g2&&!isPassShip&&unlocked){const b2=document.createElement("span");b2.className="hListG2Badge";b2.innerText="G2";div.appendChild(b2);}
+    if(isPassShip&&unlocked){const bp=document.createElement("span");bp.className="hListG2Badge";bp.style.background="linear-gradient(135deg,#6600cc,#ff44bb)";bp.style.animation="chromaticShift 2.5s linear infinite";bp.innerText="✦";div.appendChild(bp);}
     div.onclick=()=>{if(!unlocked)return;hangarSelectedId=sc.id;buildHangarList();showHangarDetail(sc.id);loadPreviewShip(sc.id);};
     list.appendChild(div);
   });
@@ -1540,8 +1549,8 @@ function saveEquippedSkins(obj){localStorage.setItem("sd2_equipped_skins",JSON.s
 function getEquippedSkin(shipId){const e=loadEquippedSkins();return e[shipId]!==undefined?e[shipId]:null;}
 
 function generateShopSlots(){
-  // Pick 3 random skin IDs — no duplicates
-  const all=SKINS.map(s=>s.id);
+  // Only include skins that are NOT pass-exclusive
+  const all=SKINS.filter(s=>!s.passOnly).map(s=>s.id);
   const shuffled=[...all].sort(()=>Math.random()-.5);
   return shuffled.slice(0,3);
 }
