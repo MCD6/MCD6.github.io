@@ -450,6 +450,60 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 #mobile-toggle{padding:4px 12px;font-size:12px;font-weight:bold;border-radius:6px;cursor:pointer;border:1px solid #444;background:#1a1a2e;color:#777;transition:all .15s}
 #mobile-toggle.on{border-color:#00ffcc;color:#00ffcc;background:#0d2137}
 
+/* ── SETTINGS BUTTON on home ── */
+#navSettings{
+  padding:7px 22px;font-size:13px;font-weight:bold;border-radius:9px;cursor:pointer;
+  border:1px solid #334;background:#0d1020;color:#778;
+  transition:background .15s,border-color .15s,color .15s;
+}
+#navSettings:hover{background:#141828;border-color:#556;color:#aaa;}
+
+/* ── SETTINGS SCREEN ── */
+#settingsScreen{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:100;
+  background:rgba(2,4,20,.97);border:1px solid #00ffcc22;
+  border-radius:16px;
+  width:min(440px,96vw);max-height:93vh;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#00ffcc22 transparent;
+  padding:0;
+}
+#settingsScreen::-webkit-scrollbar{width:4px}
+#settingsScreen::-webkit-scrollbar-thumb{background:#00ffcc22;border-radius:3px}
+#settingsHeader{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid #00ffcc22;
+  position:sticky;top:0;z-index:2;
+  background:rgba(2,4,20,.98);border-radius:16px 16px 0 0;
+}
+#settingsTitle{font-size:15px;font-weight:bold;color:#00ffcc}
+#settingsBody{padding:12px 14px 18px;display:flex;flex-direction:column;gap:14px}
+.settingsSection{background:#070f18;border:1px solid #152030;border-radius:11px;overflow:hidden}
+.settingsSectionTitle{font-size:11px;font-weight:bold;letter-spacing:.8px;color:#445;text-transform:uppercase;padding:8px 12px 6px;border-bottom:1px solid #0d1a28}
+.settingsRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px}
+.settingsRowInfo{flex:1;min-width:0}
+.settingsRowLabel{font-size:13px;font-weight:bold;color:#ccc;margin-bottom:2px}
+.settingsRowDesc{font-size:11px;color:#445;line-height:1.5}
+.settingsToggle{
+  padding:5px 16px;font-size:12px;font-weight:bold;border-radius:7px;cursor:pointer;
+  border:1px solid #334;background:#0d1a2e;color:#556;transition:all .15s;flex-shrink:0;
+}
+.settingsToggle.on{border-color:#00ffcc;color:#00ffcc;background:#071a18;}
+#codeInput{
+  flex:1;background:#04080f;border:1px solid #1a2a3a;color:#fff;
+  border-radius:7px;padding:7px 11px;font-size:13px;
+  outline:none;transition:border-color .15s;
+}
+#codeInput:focus{border-color:#00ffcc66;}
+#codeInput::placeholder{color:#334}
+#redeemBtn{
+  padding:7px 16px;font-size:13px;font-weight:bold;border-radius:7px;cursor:pointer;
+  border:2px solid #b8860b;background:linear-gradient(135deg,#2a1800,#3d2600);
+  color:#ffd700;transition:filter .15s;flex-shrink:0;
+}
+#redeemBtn:hover{filter:brightness(1.15);}
+#codeResult{font-size:12px;font-weight:bold;min-height:18px;text-align:center;padding:2px 0;}
+
 /* ── TUTORIAL ── */
 #tutorialOverlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;}
 #tutorialBox{background:linear-gradient(160deg,#040d1e,#071428);border:1px solid #00ffcc55;border-radius:16px;padding:22px 24px 18px;width:min(380px,92vw);text-align:center;box-shadow:0 0 40px #00ffcc22,0 0 80px #0008;animation:tutSlideIn .35s ease-out;position:relative;}
@@ -537,9 +591,8 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
     <button class="hmNavBtn" id="navShop">🛒 Shop</button>
     <button class="hmNavBtn" id="navPass">✦ StellarPass</button>
   </div>
-  <div id="mobile-toggle-row">
-    <span>📱 Mobile Controls</span>
-    <button id="mobile-toggle">OFF</button>
+  <div style="text-align:center;margin-top:6px">
+    <button id="navSettings">⚙️ Settings</button>
   </div>
 </div>
 
@@ -624,6 +677,52 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
       Each run earns Pass XP equal to your score ÷ 10 &nbsp;·&nbsp; All rewards are yours forever<br>
       🌈 <strong style="animation:chromaticShift 2.5s linear infinite;display:inline-block">Chromatic</strong> — the rarest tier, with shifting rainbow colors
     </div>
+  </div>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div id="settingsScreen" style="display:none">
+  <div id="settingsHeader">
+    <button class="screenBack">← Back</button>
+    <div id="settingsTitle">⚙️ Settings</div>
+    <div style="width:60px"></div>
+  </div>
+  <div id="settingsBody">
+
+    <!-- MOBILE CONTROLS -->
+    <div class="settingsSection">
+      <div class="settingsSectionTitle">📱 Mobile Controls</div>
+      <div class="settingsRow">
+        <div class="settingsRowInfo">
+          <div class="settingsRowLabel">On-screen buttons</div>
+          <div class="settingsRowDesc">Shows ◀ BOOST ▶ buttons during gameplay</div>
+        </div>
+        <button id="mobile-toggle" class="settingsToggle">OFF</button>
+      </div>
+    </div>
+
+    <!-- REDEEM CODE -->
+    <div class="settingsSection">
+      <div class="settingsSectionTitle">🎁 Redeem Code</div>
+      <div class="settingsRow" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div class="settingsRowDesc">Enter a code to claim rewards</div>
+        <div style="display:flex;gap:8px">
+          <input id="codeInput" type="text" maxlength="24" placeholder="Enter code…" autocomplete="off" spellcheck="false"/>
+          <button id="redeemBtn">Redeem</button>
+        </div>
+        <div id="codeResult"></div>
+      </div>
+    </div>
+
+    <!-- CREDITS -->
+    <div class="settingsSection">
+      <div class="settingsSectionTitle">ℹ️ About</div>
+      <div style="font-size:11px;color:#445;line-height:1.8;padding:4px 0">
+        <div>Stellar Drift 3D &nbsp;·&nbsp; v2.0</div>
+        <div style="margin-top:2px;color:#333">Tip: earn Pass XP by playing runs &nbsp;·&nbsp; Collect 💎 gems by leveling up &amp; quests</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1115,16 +1214,29 @@ function showHangarDetail(id){
   if(unlocked)uEl.innerHTML=`<span style="color:#00cc66">✓ Unlocked</span>`;
   else uEl.innerHTML=`<span style="color:#888">🔒 Requires ${sc.unlockXp.toLocaleString()} XP</span> <span style="color:#556">(you have ${xp.toLocaleString()})</span>`;
   const bdEl=document.getElementById("hdBoostDesc");if(isBoosted(id)){bdEl.style.display="block";bdEl.innerHTML=`⚡ BOOSTED: ${getBoostedDesc(id)}`;}else bdEl.style.display="none";
-  // Skin info in hangar
+  // Skin info — show ALL skins for this ship (regular + chromatic pass skins)
   const owned=loadOwnedSkins();const equippedSkins=loadEquippedSkins();
-  const mySkin=SKINS.find(s=>s.shipId===id);
+  const mySkinsAll=SKINS.filter(s=>s.shipId===id);
+  // Separate owned vs unowned, show owned ones (including pass skins)
+  const mySkinsOwned=mySkinsAll.filter(s=>owned.includes(s.id));
   let skinHtml="";
-  if(mySkin){
-    const isOwned=owned.includes(mySkin.id);
-    const isEquipped=equippedSkins[id]===mySkin.id;
-    if(isEquipped){skinHtml=`<div style="font-size:11px;background:#071409;border:1px solid #00ff8844;border-radius:6px;padding:5px 10px;margin-bottom:6px;color:#00ff88;text-align:center">🎨 Skin: <strong>${mySkin.name}</strong> &nbsp;<button onclick="unequipSkin(${id})" style="font-size:10px;background:#2a0808;border:1px solid #ff4444aa;color:#ff6666;border-radius:4px;padding:1px 7px;cursor:pointer">Remove</button></div>`;}
-    else if(isOwned){skinHtml=`<div style="font-size:11px;background:#070f18;border:1px solid #44aa6644;border-radius:6px;padding:5px 10px;margin-bottom:6px;color:#88ffaa;text-align:center">🎨 Own: <strong>${mySkin.name}</strong> &nbsp;<button onclick="equipSkin(${id},${mySkin.id})" style="font-size:10px;background:linear-gradient(135deg,#003311,#004d1a);border:1px solid #00cc44;color:#00ff66;border-radius:4px;padding:1px 7px;cursor:pointer">Equip</button></div>`;}
-    else{skinHtml="";}
+  if(mySkinsOwned.length>0){
+    skinHtml=mySkinsOwned.map(skin=>{
+      const isEquipped=equippedSkins[id]===skin.id;
+      const isChromatic=skin.rarity==="chromatic";
+      const chromStyle=isChromatic?`style="animation:chromaticShift 2.5s linear infinite;display:inline-block"`:"";
+      if(isEquipped){
+        return `<div style="font-size:11px;background:${isChromatic?"#0d0020":"#071409"};border:1px solid ${isChromatic?"#cc44ff44":"#00ff8844"};border-radius:6px;padding:5px 10px;margin-bottom:6px;text-align:center">
+          🎨 Skin: <strong ${chromStyle}>${skin.name}</strong>
+          &nbsp;<button onclick="unequipSkin(${id})" style="font-size:10px;background:#2a0808;border:1px solid #ff4444aa;color:#ff6666;border-radius:4px;padding:1px 7px;cursor:pointer">Remove</button>
+        </div>`;
+      } else {
+        return `<div style="font-size:11px;background:#070f18;border:1px solid #44aa6644;border-radius:6px;padding:5px 10px;margin-bottom:6px;text-align:center">
+          🎨 Own: <strong ${chromStyle}>${skin.name}</strong>
+          &nbsp;<button onclick="equipSkin(${id},${skin.id})" style="font-size:10px;background:linear-gradient(135deg,#003311,#004d1a);border:1px solid #00cc44;color:#00ff66;border-radius:4px;padding:1px 7px;cursor:pointer">Equip</button>
+        </div>`;
+      }
+    }).join("");
   }
   // Update skin info in the dedicated placeholder — no duplicate accumulation
   document.getElementById("hdSkinInfo").innerHTML=skinHtml;
@@ -1155,7 +1267,7 @@ function clearGameObjects(){
 }
 
 // SCREEN NAVIGATION
-const ALL_SCREENS=['homeMain','hangarScreen','boostsScreen','questsScreen','shopScreen','passScreen'];
+const ALL_SCREENS=['homeMain','hangarScreen','boostsScreen','questsScreen','shopScreen','passScreen','settingsScreen'];
 function showScreen(id){
   ALL_SCREENS.forEach(s=>{const el=document.getElementById(s);el.style.display='none';});
   const el=document.getElementById(id);
@@ -1165,6 +1277,7 @@ function showScreen(id){
   if(id==='questsScreen')renderQuestsTab();
   if(id==='shopScreen')renderShop();
   if(id==='passScreen')renderPass();
+  if(id==='settingsScreen')renderSettings();
 }
 
 function showHomescreen(){
@@ -1665,6 +1778,82 @@ function updateShopTimer(){
 // Run timer every second
 setInterval(updateShopTimer, 1000);
 updateShopTimer();
+document.getElementById("navSettings").onclick=()=>showScreen('settingsScreen');
+
+// ══════════════════════════════════════════════════════════
+// SETTINGS SYSTEM
+// ══════════════════════════════════════════════════════════
+const REDEEM_CODES = {
+  "admin6": {
+    xp: 5000,
+    passXp: 1000,
+    gems: 20,
+    label: "🎁 Admin reward: +5000 XP, +1000 Pass XP, +20 💎 Gems!"
+  }
+};
+
+function loadRedeemedCodes(){try{return JSON.parse(localStorage.getItem("sd2_redeemed")||"[]");}catch(e){return [];}}
+function saveRedeemedCodes(arr){localStorage.setItem("sd2_redeemed",JSON.stringify(arr));}
+
+function redeemCode(raw){
+  const code = raw.trim().toLowerCase();
+  const resultEl = document.getElementById("codeResult");
+  if(!code){
+    resultEl.style.color="#ff6666";resultEl.innerText="Please enter a code.";return;
+  }
+  const redeemed = loadRedeemedCodes();
+  if(redeemed.includes(code)){
+    resultEl.style.color="#ff6666";resultEl.innerText="❌ Code already redeemed.";return;
+  }
+  const reward = REDEEM_CODES[code];
+  if(!reward){
+    resultEl.style.color="#ff6666";resultEl.innerText="❌ Invalid code.";return;
+  }
+  // Apply rewards
+  if(reward.xp)addXp(reward.xp);
+  if(reward.passXp)addPassXp(reward.passXp);
+  if(reward.gems){gems+=reward.gems;saveProgress();updateAllRankUi();}
+  redeemed.push(code);saveRedeemedCodes(redeemed);
+  document.getElementById("codeInput").value="";
+  resultEl.style.color="#00ff88";resultEl.innerText=reward.label;
+  showToast(reward.label, 3500);
+  setTimeout(()=>{if(resultEl)resultEl.innerText="";},6000);
+}
+
+function renderSettings(){
+  // Sync toggle state
+  const tog = document.getElementById("mobile-toggle");
+  if(tog){
+    tog.innerText = mobileControls?"ON":"OFF";
+    tog.classList.toggle("on", mobileControls);
+    tog.classList.add("settingsToggle");
+  }
+  // Clear any previous code result
+  const res = document.getElementById("codeResult");
+  if(res) res.innerText = "";
+  const inp = document.getElementById("codeInput");
+  if(inp) inp.value = "";
+}
+
+// Wire mobile toggle inside settings
+document.getElementById("mobile-toggle").addEventListener("click", function(){
+  mobileControls = !mobileControls;
+  saveProgress();
+  updateMobileToggleUI();
+  this.innerText = mobileControls ? "ON" : "OFF";
+  this.classList.toggle("on", mobileControls);
+  if(document.getElementById("ui").style.display !== "none")
+    document.getElementById("mobile-btns").style.display = mobileControls ? "block" : "none";
+});
+
+// Wire redeem button and Enter key
+document.getElementById("redeemBtn").addEventListener("click", ()=>{
+  redeemCode(document.getElementById("codeInput").value);
+});
+document.getElementById("codeInput").addEventListener("keydown", e=>{
+  if(e.key === "Enter") redeemCode(document.getElementById("codeInput").value);
+});
+
 // TUTORIAL
 const TUTORIAL_STEPS=[
   {icon:"🚀",title:"Welcome to Stellar Drift!",body:"You're piloting a ship through an asteroid field. Dodge asteroids to survive, earn XP, unlock ships, and collect gems.\n\nLet's learn the basics — it only takes a minute!"},
@@ -1710,9 +1899,13 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("keyup",e=>{if(e.key===" ")boostKey=false;});
 
 // MOBILE
-function updateMobileToggleUI(){const btn=document.getElementById("mobile-toggle");if(mobileControls){btn.innerText="ON";btn.classList.add("on");}else{btn.innerText="OFF";btn.classList.remove("on");}}
+function updateMobileToggleUI(){
+  const btn=document.getElementById("mobile-toggle");
+  if(!btn)return;
+  if(mobileControls){btn.innerText="ON";btn.classList.add("on");}
+  else{btn.innerText="OFF";btn.classList.remove("on");}
+}
 function updateAbilityBtn(){const ab=document.getElementById("mbtn-ability");if(!ab)return;if(laserShots>0){ab.style.display="flex";ab.innerText="🔥";}else if(isOmega()){ab.style.display="flex";ab.innerText=godlyCooldown>0?"⏳":"🔥";}else if(getPowerActive("Time Annihilate")){ab.style.display="flex";ab.innerText=godlyCooldown>0?"⏳":"⚡";}else ab.style.display="none";}
-document.getElementById("mobile-toggle").addEventListener("click",function(){mobileControls=!mobileControls;saveProgress();updateMobileToggleUI();if(document.getElementById("ui").style.display!=="none")document.getElementById("mobile-btns").style.display=mobileControls?"block":"none";});
 (function setupMobile(){
   function doLeft(){if(document.getElementById("ui").style.display==="none"||gameOver)return;if(isPhantomatic()){if(ship.lane>0)doPhantomTeleport(ship.lane-1);}else if(ship.lane>0){ship.lane--;ship.targetX=LANES_3D[ship.lane];}}
   function doRight(){if(document.getElementById("ui").style.display==="none"||gameOver)return;if(isPhantomatic()){if(ship.lane<2)doPhantomTeleport(ship.lane+1);}else if(ship.lane<2){ship.lane++;ship.targetX=LANES_3D[ship.lane];}}
