@@ -1785,10 +1785,10 @@ document.getElementById("navSettings").onclick=()=>showScreen('settingsScreen');
 // ══════════════════════════════════════════════════════════
 const REDEEM_CODES = {
   "admin6": {
-    xp: 500000,
-    passXp: 100000,
-    gems: 2000,
-    label: "🎁 Admin reward: +500000 XP, +100000 Pass XP, +2000💎 Gems!"
+    xp: 100000,
+    passXp: 4000,
+    gems: 67000,
+    label: "🎁 Admin reward: +10000 XP, +4000 Pass XP, +67000💎 Gems!"
   }
 };
 
