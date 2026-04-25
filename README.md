@@ -2109,26 +2109,36 @@ function mpGetRoom(code){
 }
 
 function mpHost(){
+  if(mpRoomCode&&mpRole==='host')return; // already hosting
   const code=generateRoomCode();
   mpRoomCode=code;
   mpRole='host';
   document.getElementById("mpRoomCodeDisplay").innerText=code;
-  mpSetStatus("⏳ Waiting for your friend to join…","mpStatus-connecting");
+  mpSetStatus("⏳ Wacht op je vriend…","mpStatus-connecting");
   document.getElementById("mpDisconnectBtn").style.display="block";
   document.getElementById("mpJoinBtn").disabled=true;
 
-  // Write a heartbeat so the room exists
   const room=mpGetRoom(code);
-  if(!room){mpSetStatus("⚠️ Gun.js not loaded yet — wait a moment and retry.","mpStatus-error");return;}
+  if(!room){mpSetStatus("⚠️ Gun.js niet geladen — wacht even en herlaad de pagina.","mpStatus-error");return;}
 
-  room.get('host_hb').put({ts:Date.now(),name:playerName||"Pilot"});
+  // Write heartbeat immediately and keep refreshing every 3s
+  const sendHB=()=>{
+    if(!mpRoomCode||mpRole!=='host')return;
+    room.get('host_hb').put({ts:Date.now(),name:playerName||"Pilot"});
+  };
+  sendHB();
+  const hbInterval=setInterval(()=>{
+    if(!mpRoomCode||mpRole!=='host'){clearInterval(hbInterval);return;}
+    sendHB();
+  },3000);
 
   // Listen for guest joining
   room.get('guest_hb').on((data)=>{
-    if(data&&data.ts&&!mpConnected){
+    if(data&&data.ts&&data.ts>0&&!mpConnected){
       mpConnected=true;
-      mpSetStatus("✓ Verbonden met "+( data.name||"Guest")+"! Sluit dit scherm en speel!","mpStatus-connected");
-      document.getElementById("mpHUD").innerText="👥 "+( data.name||"Guest");
+      const guestName=data.name||"Guest";
+      mpSetStatus("✓ Verbonden met "+guestName+"! Sluit dit scherm en speel!","mpStatus-connected");
+      document.getElementById("mpHUD").innerText="👥 "+guestName;
       document.getElementById("mpHUD").style.display="block";
       createOrUpdateGhostMesh();
     }
@@ -2140,6 +2150,12 @@ function mpHost(){
     mpGhostX=data.x||0;mpGhostLane=data.lane||1;mpGhostScore=data.score||0;
     const lbl=document.getElementById("ghostLabel");
     if(lbl){lbl.innerText="👥 "+(data.name||"Guest")+" · "+mpGhostScore;lbl.style.display="block";}
+    if(!mpConnected&&data.ts){
+      mpConnected=true;
+      mpSetStatus("✓ Verbonden! Sluit dit scherm en speel!","mpStatus-connected");
+      document.getElementById("mpHUD").style.display="block";
+      createOrUpdateGhostMesh();
+    }
   });
   mpGunSub=room;
 }
@@ -2150,33 +2166,52 @@ function mpJoin(code){
   const room=mpGetRoom(code);
   if(!room){mpSetStatus("⚠️ Gun.js niet geladen — wacht even en probeer opnieuw.","mpStatus-error");return;}
 
-  // Check if host exists
-  mpSetStatus("⏳ Verbinden…","mpStatus-connecting");
-  room.get('host_hb').once((data)=>{
-    if(!data||!data.ts){mpSetStatus("❌ Kamer niet gevonden. Controleer de code.","mpStatus-error");return;}
-    // Room found — join
-    mpRoomCode=code;
-    mpRole='guest';
-    mpConnected=true;
-    document.getElementById("mpDisconnectBtn").style.display="block";
-    document.getElementById("mpJoinBtn").disabled=true;
+  mpRoomCode=code;
+  mpRole='guest';
+  mpSetStatus("⏳ Verbinden met kamer "+code+"…","mpStatus-connecting");
+  document.getElementById("mpJoinBtn").disabled=true;
+  document.getElementById("mpDisconnectBtn").style.display="block";
 
-    // Announce ourselves
-    room.get('guest_hb').put({ts:Date.now(),name:playerName||"Pilot"});
-    mpSetStatus("✓ Verbonden met "+(data.name||"Host")+"! Sluit dit scherm en speel!","mpStatus-connected");
-    document.getElementById("mpHUD").innerText="👥 "+(data.name||"Host");
-    document.getElementById("mpHUD").style.display="block";
-    createOrUpdateGhostMesh();
+  // Announce ourselves immediately
+  room.get('guest_hb').put({ts:Date.now(),name:playerName||"Pilot"});
 
-    // Listen for host position
-    room.get('host_pos').on((d)=>{
-      if(!d)return;
-      mpGhostX=d.x||0;mpGhostLane=d.lane||1;mpGhostScore=d.score||0;
-      const lbl=document.getElementById("ghostLabel");
-      if(lbl){lbl.innerText="👥 "+(d.name||"Host")+" · "+mpGhostScore;lbl.style.display="block";}
-    });
-    mpGunSub=room;
+  // Listen for host heartbeat to confirm host is there
+  let confirmed=false;
+  room.get('host_hb').on((data)=>{
+    if(data&&data.ts&&data.ts>0&&!confirmed){
+      confirmed=true;
+      mpConnected=true;
+      const hostName=data.name||"Host";
+      mpSetStatus("✓ Verbonden met "+hostName+"! Sluit dit scherm en speel!","mpStatus-connected");
+      document.getElementById("mpHUD").innerText="👥 "+hostName;
+      document.getElementById("mpHUD").style.display="block";
+      createOrUpdateGhostMesh();
+    }
   });
+
+  // Listen for host position regardless (start receiving immediately)
+  room.get('host_pos').on((d)=>{
+    if(!d)return;
+    mpGhostX=d.x||0;mpGhostLane=d.lane||1;mpGhostScore=d.score||0;
+    const lbl=document.getElementById("ghostLabel");
+    if(lbl){lbl.innerText="👥 "+(d.name||"Host")+" · "+mpGhostScore;lbl.style.display="block";}
+    // Also confirm connection from position data if heartbeat was missed
+    if(!mpConnected&&d.ts){
+      mpConnected=true;
+      mpSetStatus("✓ Verbonden! Sluit dit scherm en speel!","mpStatus-connected");
+      document.getElementById("mpHUD").style.display="block";
+      createOrUpdateGhostMesh();
+    }
+  });
+
+  // Timeout: if after 8s still not confirmed, show helpful message
+  setTimeout(()=>{
+    if(!mpConnected){
+      mpSetStatus("⚠️ Host niet gevonden. Controleer of de host het scherm open heeft en de code klopt.","mpStatus-error");
+    }
+  },8000);
+
+  mpGunSub=room;
 }
 
 function mpDisconnect(){
@@ -2238,18 +2273,28 @@ function updateGhostShip3D(){
 }
 
 function renderMultiplayer(){
-  // Reset join button in case it was disabled by a previous attempt
   const jb=document.getElementById("mpJoinBtn");
-  if(jb&&!mpConnected)jb.disabled=false;
-  // If already connected just update status
+  if(jb&&!mpConnected&&mpRole!=='host')jb.disabled=false;
   if(mpConnected){
     mpSetStatus("✓ Verbonden! Sluit dit scherm en speel!","mpStatus-connected");
-  } else {
-    // Auto-generate a fresh host code if not yet hosting
-    if(!mpRoomCode){
-      mpHost();
-    }
+    return;
   }
+  if(mpRole==='host'&&mpRoomCode){
+    // Already hosting, just show current status
+    mpSetStatus("⏳ Wacht op je vriend…","mpStatus-connecting");
+    return;
+  }
+  // Generate a fresh host code — wait briefly for Gun to load
+  document.getElementById("mpRoomCodeDisplay").innerText="…";
+  mpSetStatus("⏳ Kamer aanmaken…","mpStatus-connecting");
+  setTimeout(()=>{
+    if(getGun()){
+      mpHost();
+    } else {
+      document.getElementById("mpRoomCodeDisplay").innerText="------";
+      mpSetStatus("⚠️ Geen internetverbinding met Gun-server.","mpStatus-error");
+    }
+  },800);
 }
 
 document.getElementById("mpCopyBtn").addEventListener("click",()=>{
