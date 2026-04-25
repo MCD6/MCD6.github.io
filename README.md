@@ -457,6 +457,112 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
   transition:background .15s,border-color .15s,color .15s;
 }
 #navSettings:hover{background:#141828;border-color:#556;color:#aaa;}
+#navLeaderboard{background:linear-gradient(135deg,#002255,#0055ff);color:#fff;box-shadow:0 2px 8px rgba(0,80,255,.35);}
+#navLeaderboard:hover{filter:brightness(1.15);}
+#navMultiplayer{background:linear-gradient(135deg,#003322,#00aa55);color:#fff;box-shadow:0 2px 8px rgba(0,160,80,.35);}
+#navMultiplayer:hover{filter:brightness(1.15);}
+
+/* ── LEADERBOARD SCREEN ── */
+#leaderboardScreen,#multiplayerScreen{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:100;
+  background:rgba(2,4,20,.97);border:1px solid #00ffcc22;
+  border-radius:16px;
+  width:min(460px,96vw);max-height:93vh;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#00ffcc22 transparent;
+  padding:0;
+}
+#leaderboardScreen::-webkit-scrollbar,#multiplayerScreen::-webkit-scrollbar{width:4px}
+#leaderboardScreen::-webkit-scrollbar-thumb,#multiplayerScreen::-webkit-scrollbar-thumb{background:#00ffcc22;border-radius:3px}
+#lbHeader,#mpHeader{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid #00ffcc22;
+  position:sticky;top:0;z-index:2;
+  background:rgba(2,4,20,.98);border-radius:16px 16px 0 0;
+}
+#lbTitle{font-size:15px;font-weight:bold;color:#4488ff}
+#mpTitle{font-size:15px;font-weight:bold;color:#00cc66}
+#lbBody,#mpBody{padding:12px 14px 18px}
+/* Leaderboard rows */
+#lbList{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.lbRow{
+  display:flex;align-items:center;gap:10px;
+  background:#07101a;border:1px solid #0d1e2e;border-radius:8px;padding:8px 12px;
+}
+.lbRow.lbTop1{border-color:#ffd70055;background:#0d0e04}
+.lbRow.lbTop2{border-color:#c0c0c055;background:#09090d}
+.lbRow.lbTop3{border-color:#cd7f3255;background:#0a0804}
+.lbRow.lbMe{border-color:#00ffcc55;background:#04110d}
+.lbRank{font-size:18px;width:28px;text-align:center;flex-shrink:0}
+.lbName{flex:1;font-size:13px;font-weight:bold;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbScore{font-size:14px;font-weight:bold;color:#00ffcc}
+.lbShip{font-size:10px;color:#445;margin-top:1px}
+#lbStatus{font-size:11px;color:#445;text-align:center;margin:6px 0}
+#lbRefreshBtn{
+  display:block;margin:8px auto 0;
+  padding:6px 18px;font-size:12px;font-weight:bold;border-radius:7px;cursor:pointer;
+  border:1px solid #0055ff44;background:#020d1a;color:#4488ff;transition:filter .15s;
+}
+#lbRefreshBtn:hover{filter:brightness(1.2);}
+
+/* Multiplayer screen */
+.mpSection{background:#070f18;border:1px solid #152030;border-radius:11px;overflow:hidden;margin-bottom:10px}
+.mpSectionTitle{font-size:11px;font-weight:bold;letter-spacing:.8px;color:#445;text-transform:uppercase;padding:8px 12px 6px;border-bottom:1px solid #0d1a28}
+.mpSectionBody{padding:10px 12px}
+#mpStatus{
+  text-align:center;font-size:13px;font-weight:bold;min-height:20px;
+  margin:6px 0;padding:4px;border-radius:6px;
+}
+.mpStatus-idle{color:#445}
+.mpStatus-connecting{color:#ffaa00}
+.mpStatus-connected{color:#00ff88;background:#031a0a;border:1px solid #00ff8822}
+.mpStatus-error{color:#ff4444;background:#1a0303;border:1px solid #ff444422}
+#mpRoomCodeDisplay{
+  font-size:28px;font-weight:900;letter-spacing:6px;color:#00ffcc;
+  text-align:center;font-family:monospace;padding:10px 0 4px;
+  text-shadow:0 0 12px #00ffcc66;
+}
+#mpRoomCodeLabel{font-size:11px;color:#445;text-align:center;margin-bottom:8px}
+#mpCopyBtn{
+  display:block;margin:0 auto;
+  padding:5px 18px;font-size:12px;font-weight:bold;border-radius:7px;cursor:pointer;
+  border:1px solid #00ffcc44;background:#07101a;color:#00ffcc;transition:filter .15s;
+}
+#mpCopyBtn:hover{filter:brightness(1.2);}
+#mpJoinInput{
+  width:100%;background:#04080f;border:1px solid #1a2a3a;color:#fff;
+  border-radius:7px;padding:8px 12px;font-size:18px;font-weight:bold;
+  letter-spacing:4px;font-family:monospace;text-align:center;
+  outline:none;transition:border-color .15s;margin-bottom:8px;
+}
+#mpJoinInput:focus{border-color:#00cc6666;}
+#mpJoinInput::placeholder{color:#223;letter-spacing:2px;font-size:13px}
+#mpJoinBtn{
+  display:block;width:100%;padding:9px 0;font-size:14px;font-weight:bold;
+  border-radius:8px;cursor:pointer;
+  border:2px solid #00cc44;background:linear-gradient(135deg,#003311,#004d1a);
+  color:#00ff66;transition:filter .15s;
+}
+#mpJoinBtn:hover{filter:brightness(1.15);}
+#mpJoinBtn:disabled{border-color:#334;background:#0a0f14;color:#334;cursor:not-allowed;filter:none;}
+#mpDisconnectBtn{
+  display:none;width:100%;padding:7px 0;margin-top:6px;font-size:13px;font-weight:bold;
+  border-radius:8px;cursor:pointer;
+  border:1px solid #ff4444aa;background:#1a0303;color:#ff6666;transition:filter .15s;
+}
+#mpDisconnectBtn:hover{filter:brightness(1.15);}
+.mpInfoRow{font-size:11px;color:#334;text-align:center;margin-top:6px;line-height:1.6}
+/* In-game ghost indicator */
+#mpHUD{
+  position:fixed;right:8px;top:8px;font-size:12px;font-weight:bold;
+  color:#00ff88;background:rgba(0,0,0,.65);border:1px solid #00ff8822;
+  border-radius:6px;padding:3px 9px;display:none;z-index:999;pointer-events:none;
+}
+/* Ghost label above ghost ship */
+#ghostLabel{
+  position:fixed;left:50%;top:52px;transform:translateX(-50%);
+  font-size:11px;color:#00ff88aa;display:none;z-index:999;pointer-events:none;
+}
 
 /* ── SETTINGS SCREEN ── */
 #settingsScreen{
@@ -541,6 +647,8 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 <div id="singularityDisplay">🌀 Singularity: <span id="singularityTimer">15</span>s</div>
 <div id="chronosDisplay">🕰 Chronos: <span id="chronosLabel">Solid 8s</span></div>
 <div id="galaxyHUD">🌌 NEBULA RIFT</div>
+<div id="mpHUD">👥 Connected</div>
+<div id="ghostLabel"></div>
 <div id="controls-hint">← → / A D = Move &nbsp;|&nbsp; SPACE = Boost &nbsp;|&nbsp; L = Laser &nbsp;|&nbsp; F = Ability &nbsp;|&nbsp; R = Home</div>
 
 <div id="tutorialOverlay" style="display:none">
@@ -590,6 +698,8 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
     <button class="hmNavBtn" id="navQuests">📜 Quests</button>
     <button class="hmNavBtn" id="navShop">🛒 Shop</button>
     <button class="hmNavBtn" id="navPass">✦ StellarPass</button>
+    <button class="hmNavBtn" id="navLeaderboard">🌍 Scores</button>
+    <button class="hmNavBtn" id="navMultiplayer">👥 Multiplayer</button>
   </div>
   <div style="text-align:center;margin-top:6px">
     <button id="navSettings">⚙️ Settings</button>
@@ -680,6 +790,54 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
   </div>
 </div>
 
+<!-- LEADERBOARD SCREEN -->
+<div id="leaderboardScreen" style="display:none">
+  <div id="lbHeader">
+    <button class="screenBack">← Back</button>
+    <div id="lbTitle">🌍 Global Leaderboard</div>
+    <div style="font-size:12px;color:#888">💎 <span class="gemCount">0</span></div>
+  </div>
+  <div id="lbBody">
+    <div id="lbStatus">Loading scores…</div>
+    <div id="lbList"></div>
+    <button id="lbRefreshBtn">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- MULTIPLAYER SCREEN -->
+<div id="multiplayerScreen" style="display:none">
+  <div id="mpHeader">
+    <button class="screenBack">← Back</button>
+    <div id="mpTitle">👥 Multiplayer</div>
+    <div style="font-size:12px;color:#888">💎 <span class="gemCount">0</span></div>
+  </div>
+  <div id="mpBody">
+    <div id="mpStatus" class="mpStatus-idle">Not connected</div>
+
+    <!-- HOST -->
+    <div class="mpSection">
+      <div class="mpSectionTitle">🎮 Host — Create Room</div>
+      <div class="mpSectionBody">
+        <div id="mpRoomCodeDisplay">------</div>
+        <div id="mpRoomCodeLabel">Share this code with your friend</div>
+        <button id="mpCopyBtn">📋 Copy Code</button>
+        <button id="mpDisconnectBtn">✕ Disconnect</button>
+        <div class="mpInfoRow">Your friend enters this code to join your game<br>Both players must be on the game at the same time</div>
+      </div>
+    </div>
+
+    <!-- JOIN -->
+    <div class="mpSection">
+      <div class="mpSectionTitle">🔗 Join — Enter Code</div>
+      <div class="mpSectionBody">
+        <input id="mpJoinInput" type="text" maxlength="6" placeholder="Enter 6-digit code" autocomplete="off" spellcheck="false"/>
+        <button id="mpJoinBtn">Connect →</button>
+        <div class="mpInfoRow">Enter the code your friend shared with you</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- SETTINGS SCREEN -->
 <div id="settingsScreen" style="display:none">
   <div id="settingsHeader">
@@ -737,6 +895,7 @@ body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 <script>
 const XP_RANKS=[
   {name:"Cadet",xp:0,color:"#A0A0A0"},{name:"Pilot",xp:100,color:"#00FF00"},
@@ -1267,7 +1426,7 @@ function clearGameObjects(){
 }
 
 // SCREEN NAVIGATION
-const ALL_SCREENS=['homeMain','hangarScreen','boostsScreen','questsScreen','shopScreen','passScreen','settingsScreen'];
+const ALL_SCREENS=['homeMain','hangarScreen','boostsScreen','questsScreen','shopScreen','passScreen','settingsScreen','leaderboardScreen','multiplayerScreen'];
 function showScreen(id){
   ALL_SCREENS.forEach(s=>{const el=document.getElementById(s);el.style.display='none';});
   const el=document.getElementById(id);
@@ -1278,6 +1437,8 @@ function showScreen(id){
   if(id==='shopScreen')renderShop();
   if(id==='passScreen')renderPass();
   if(id==='settingsScreen')renderSettings();
+  if(id==='leaderboardScreen')renderLeaderboard();
+  if(id==='multiplayerScreen')renderMultiplayer();
 }
 
 function showHomescreen(){
@@ -1422,6 +1583,7 @@ function updateAsteroids3D(speed3D){
       document.getElementById("gameOver").style.display="block";document.getElementById("returnHomeBtn").style.display="inline-block";
       checkQuestsAfterRun();
       addPassXp(Math.floor(questRunScore/10));
+      submitScore(playerName||"Pilot", questRunScore, COSMETICS[chosenCosmetic].name);
     }
   }
   if(frozenFrames>0)frozenFrames--;if(startShieldActive&&startShieldFrames>0){startShieldFrames--;if(!startShieldFrames)startShieldActive=false;}
@@ -1492,7 +1654,10 @@ function update(){
   updateStarfield(spd2d);
   if(!gameOver){difficultyTimer++;if(frozenFrames===0&&difficultyTimer%300===0)baseSpeed+=.5;updateShip3D();updateAsteroids3D(spd3D);updateGems(spd3D);updateGemSpawn();preventImpossibleRows();if(frozenFrames===0&&Math.random()<.03)spawnAsteroid();if(godlyCooldown>0)godlyCooldown--;updateSingularity();updateChronos();}
   updateLaser3D();updateEngineExhaust();updateParticles3D();updateVoidParticles();updateSoulParticles();updateGhostDecoy();updatePassiveXp();updateGodlyCooldown();updateCamera();
-  renderer.render(scene,camera);animationFrameId=requestAnimationFrame(update);
+  renderer.render(scene,camera);
+  mpBroadcast();
+  updateGhostShip3D();
+  animationFrameId=requestAnimationFrame(update);
 }
 
 // EVENTS
@@ -1779,16 +1944,18 @@ function updateShopTimer(){
 setInterval(updateShopTimer, 1000);
 updateShopTimer();
 document.getElementById("navSettings").onclick=()=>showScreen('settingsScreen');
+document.getElementById("navLeaderboard").onclick=()=>showScreen('leaderboardScreen');
+document.getElementById("navMultiplayer").onclick=()=>showScreen('multiplayerScreen');
 
 // ══════════════════════════════════════════════════════════
 // SETTINGS SYSTEM
 // ══════════════════════════════════════════════════════════
 const REDEEM_CODES = {
   "admin6": {
-    xp: 100000,
-    passXp: 4000,
-    gems: 67000,
-    label: "🎁 Admin reward: +10000 XP, +4000 Pass XP, +67000💎 Gems!"
+    xp: 5000,
+    passXp: 1000,
+    gems: 20,
+    label: "🎁 Admin reward: +5000 XP, +1000 Pass XP, +20 💎 Gems!"
   }
 };
 
@@ -1853,6 +2020,261 @@ document.getElementById("redeemBtn").addEventListener("click", ()=>{
 document.getElementById("codeInput").addEventListener("keydown", e=>{
   if(e.key === "Enter") redeemCode(document.getElementById("codeInput").value);
 });
+
+// ══════════════════════════════════════════════════════════
+// LEADERBOARD — Gun.js
+// ══════════════════════════════════════════════════════════
+let gun = null;
+function getGun(){
+  if(!gun){
+    try{gun=Gun(['https://gun-manhattan.herokuapp.com/gun','https://gun-us.herokuapp.com/gun']);}
+    catch(e){gun=null;}
+  }
+  return gun;
+}
+
+function submitScore(name, score, shipName){
+  if(score<50)return; // skip tiny scores
+  try{
+    const g=getGun();if(!g)return;
+    const key='sd3_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    g.get('stellar_drift_v3').get(key).put({
+      name:String(name).slice(0,16),
+      score:Number(score),
+      ship:String(shipName).slice(0,24),
+      ts:Date.now()
+    });
+  }catch(e){}
+}
+
+function renderLeaderboard(){
+  const list=document.getElementById("lbList");
+  const status=document.getElementById("lbStatus");
+  list.innerHTML="";
+  status.innerText="Loading scores…";
+  try{
+    const g=getGun();
+    if(!g){status.innerText="⚠️ Could not reach leaderboard servers.";return;}
+    const scores=[];
+    g.get('stellar_drift_v3').map().once((data,key)=>{
+      if(data&&data.score&&data.name)scores.push(data);
+    });
+    // Give Gun 2.5s to collect entries then render
+    setTimeout(()=>{
+      scores.sort((a,b)=>b.score-a.score);
+      const top=scores.slice(0,10);
+      list.innerHTML="";
+      if(top.length===0){status.innerText="No scores yet — be the first!";return;}
+      status.innerText=`Top ${top.length} pilots worldwide`;
+      const medals=["🥇","🥈","🥉"];
+      const me=playerName||"Pilot";
+      top.forEach((s,i)=>{
+        const isMe=s.name===me;
+        const row=document.createElement("div");
+        row.className="lbRow"+(i===0?" lbTop1":i===1?" lbTop2":i===2?" lbTop3":isMe?" lbMe":"");
+        row.innerHTML=`<div class="lbRank">${medals[i]||"#"+(i+1)}</div>
+          <div style="flex:1"><div class="lbName">${s.name}${isMe?" (you)":""}</div><div class="lbShip">${s.ship||""}</div></div>
+          <div class="lbScore">${Number(s.score).toLocaleString()}</div>`;
+        list.appendChild(row);
+      });
+    },2500);
+  }catch(e){status.innerText="⚠️ Leaderboard unavailable.";}
+}
+
+document.getElementById("lbRefreshBtn").addEventListener("click",renderLeaderboard);
+
+// ══════════════════════════════════════════════════════════
+// MULTIPLAYER — Gun.js rooms (no PeerJS, no server needed)
+// ══════════════════════════════════════════════════════════
+let mpRoomCode=null, mpRole=null; // 'host' or 'guest'
+let mpGhostMesh=null, mpGhostX=0, mpGhostLane=1, mpGhostScore=0;
+let mpBroadcastTimer=0, mpConnected=false;
+let mpGunSub=null; // gun subscription handle
+
+function mpSetStatus(msg, cls='mpStatus-idle'){
+  const el=document.getElementById("mpStatus");
+  if(!el)return;
+  el.innerText=msg;
+  el.className=cls;
+}
+
+function generateRoomCode(){
+  return Math.floor(100000+Math.random()*900000).toString();
+}
+
+function mpGetRoom(code){
+  const g=getGun();
+  if(!g)return null;
+  return g.get('sd3_mp_rooms').get(code);
+}
+
+function mpHost(){
+  const code=generateRoomCode();
+  mpRoomCode=code;
+  mpRole='host';
+  document.getElementById("mpRoomCodeDisplay").innerText=code;
+  mpSetStatus("⏳ Waiting for your friend to join…","mpStatus-connecting");
+  document.getElementById("mpDisconnectBtn").style.display="block";
+  document.getElementById("mpJoinBtn").disabled=true;
+
+  // Write a heartbeat so the room exists
+  const room=mpGetRoom(code);
+  if(!room){mpSetStatus("⚠️ Gun.js not loaded yet — wait a moment and retry.","mpStatus-error");return;}
+
+  room.get('host_hb').put({ts:Date.now(),name:playerName||"Pilot"});
+
+  // Listen for guest joining
+  room.get('guest_hb').on((data)=>{
+    if(data&&data.ts&&!mpConnected){
+      mpConnected=true;
+      mpSetStatus("✓ Verbonden met "+( data.name||"Guest")+"! Sluit dit scherm en speel!","mpStatus-connected");
+      document.getElementById("mpHUD").innerText="👥 "+( data.name||"Guest");
+      document.getElementById("mpHUD").style.display="block";
+      createOrUpdateGhostMesh();
+    }
+  });
+
+  // Listen for guest position
+  room.get('guest_pos').on((data)=>{
+    if(!data)return;
+    mpGhostX=data.x||0;mpGhostLane=data.lane||1;mpGhostScore=data.score||0;
+    const lbl=document.getElementById("ghostLabel");
+    if(lbl){lbl.innerText="👥 "+(data.name||"Guest")+" · "+mpGhostScore;lbl.style.display="block";}
+  });
+  mpGunSub=room;
+}
+
+function mpJoin(code){
+  code=code.trim();
+  if(code.length!==6||isNaN(code)){mpSetStatus("Voer een geldige 6-cijferige code in","mpStatus-error");return;}
+  const room=mpGetRoom(code);
+  if(!room){mpSetStatus("⚠️ Gun.js niet geladen — wacht even en probeer opnieuw.","mpStatus-error");return;}
+
+  // Check if host exists
+  mpSetStatus("⏳ Verbinden…","mpStatus-connecting");
+  room.get('host_hb').once((data)=>{
+    if(!data||!data.ts){mpSetStatus("❌ Kamer niet gevonden. Controleer de code.","mpStatus-error");return;}
+    // Room found — join
+    mpRoomCode=code;
+    mpRole='guest';
+    mpConnected=true;
+    document.getElementById("mpDisconnectBtn").style.display="block";
+    document.getElementById("mpJoinBtn").disabled=true;
+
+    // Announce ourselves
+    room.get('guest_hb').put({ts:Date.now(),name:playerName||"Pilot"});
+    mpSetStatus("✓ Verbonden met "+(data.name||"Host")+"! Sluit dit scherm en speel!","mpStatus-connected");
+    document.getElementById("mpHUD").innerText="👥 "+(data.name||"Host");
+    document.getElementById("mpHUD").style.display="block";
+    createOrUpdateGhostMesh();
+
+    // Listen for host position
+    room.get('host_pos').on((d)=>{
+      if(!d)return;
+      mpGhostX=d.x||0;mpGhostLane=d.lane||1;mpGhostScore=d.score||0;
+      const lbl=document.getElementById("ghostLabel");
+      if(lbl){lbl.innerText="👥 "+(d.name||"Host")+" · "+mpGhostScore;lbl.style.display="block";}
+    });
+    mpGunSub=room;
+  });
+}
+
+function mpDisconnect(){
+  // Clean up room entry
+  if(mpRoomCode&&mpRole){
+    try{
+      const room=mpGetRoom(mpRoomCode);
+      if(room)room.get(mpRole+'_hb').put({ts:0,name:""});
+    }catch(e){}
+  }
+  mpRoomCode=null;mpRole=null;mpConnected=false;mpGunSub=null;
+  document.getElementById("mpRoomCodeDisplay").innerText="------";
+  document.getElementById("mpDisconnectBtn").style.display="none";
+  document.getElementById("mpJoinBtn").disabled=false;
+  document.getElementById("mpHUD").style.display="none";
+  document.getElementById("ghostLabel").style.display="none";
+  removeGhostMesh();
+  mpSetStatus("Verbroken","mpStatus-idle");
+}
+
+function mpBroadcast(){
+  if(!mpConnected||!mpRoomCode||!mpRole)return;
+  mpBroadcastTimer++;
+  if(mpBroadcastTimer%4!==0)return; // ~15fps updates
+  try{
+    const room=mpGetRoom(mpRoomCode);
+    if(!room)return;
+    room.get(mpRole+'_pos').put({
+      x:ship.x, lane:ship.lane,
+      score:score||0, name:playerName||"Pilot",
+      ts:Date.now()
+    });
+  }catch(e){}
+}
+
+// Ghost ship mesh
+function createOrUpdateGhostMesh(){
+  if(mpGhostMesh){scene.remove(mpGhostMesh);mpGhostMesh=null;}
+  const g=new THREE.Group();
+  const ghostMat=new THREE.MeshStandardMaterial({color:0x00ff88,emissive:new THREE.Color(0x00ff88).multiplyScalar(0.6),transparent:true,opacity:0.38,metalness:0.1,roughness:0.5});
+  const body=new THREE.Mesh(new THREE.ConeGeometry(0.75,3.5,5),ghostMat.clone());
+  body.rotation.x=-Math.PI/2;body.position.z=-0.3;g.add(body);
+  [-1,1].forEach(s=>{const fin=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.1,1.4),ghostMat.clone());fin.position.set(s*1.1,-0.3,1.0);g.add(fin);});
+  g.scale.set(0.85,0.85,0.85);
+  g.position.set(LANES_3D[1],0,0);
+  scene.add(g);
+  mpGhostMesh=g;
+  document.getElementById("ghostLabel").style.display="block";
+}
+function removeGhostMesh(){
+  if(mpGhostMesh){scene.remove(mpGhostMesh);mpGhostMesh=null;}
+}
+function updateGhostShip3D(){
+  if(!mpGhostMesh)return;
+  mpGhostMesh.position.x+=(mpGhostX-mpGhostMesh.position.x)*0.12;
+  mpGhostMesh.position.y=Math.sin(Date.now()*0.0021+1)*0.12;
+  mpGhostMesh.rotation.y+=0.01;
+  mpGhostMesh.children.forEach(c=>{if(c.material)c.material.opacity=0.28+Math.sin(Date.now()*0.005)*0.12;});
+}
+
+function renderMultiplayer(){
+  // Reset join button in case it was disabled by a previous attempt
+  const jb=document.getElementById("mpJoinBtn");
+  if(jb&&!mpConnected)jb.disabled=false;
+  // If already connected just update status
+  if(mpConnected){
+    mpSetStatus("✓ Verbonden! Sluit dit scherm en speel!","mpStatus-connected");
+  } else {
+    // Auto-generate a fresh host code if not yet hosting
+    if(!mpRoomCode){
+      mpHost();
+    }
+  }
+}
+
+document.getElementById("mpCopyBtn").addEventListener("click",()=>{
+  const code=document.getElementById("mpRoomCodeDisplay").innerText;
+  if(code==="------")return;
+  navigator.clipboard.writeText(code)
+    .then(()=>showToast("📋 Code gekopieerd!",1200))
+    .catch(()=>showToast("Code: "+code,3000));
+});
+document.getElementById("mpJoinBtn").addEventListener("click",()=>{
+  mpJoin(document.getElementById("mpJoinInput").value);
+});
+document.getElementById("mpJoinInput").addEventListener("keydown",e=>{
+  if(e.key==="Enter")mpJoin(document.getElementById("mpJoinInput").value);
+});
+document.getElementById("mpDisconnectBtn").addEventListener("click",mpDisconnect);
+
+// Clean up ghost when returning home
+const _origShowHomescreen=showHomescreen;
+showHomescreen=function(){
+  _origShowHomescreen();
+  document.getElementById("mpHUD").style.display="none";
+  document.getElementById("ghostLabel").style.display="none";
+  removeGhostMesh();
+};
 
 // TUTORIAL
 const TUTORIAL_STEPS=[
